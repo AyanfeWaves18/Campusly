@@ -1,0 +1,31 @@
+.ptr {
+  position: fixed;
+  left: 50%;
+  z-index: 35;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.ptr-spin {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--line);
+  border-top-color: var(--pink);
+  border-radius: 50%;
+}
+.ptr-spin.go {
+  animation: ptr-rot 0.7s linear infinite;
+}
+@keyframes ptr-rot {
+  to {
+    transform: rotate(360deg);
+  }
+}

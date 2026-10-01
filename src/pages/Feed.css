@@ -1,0 +1,264 @@
+.fd-wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 16px 40px;
+}
+.fd-banner {
+  display: block;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 0.95rem;
+}
+.fd-banner .pb {
+  margin-top: 8px;
+}
+.fd-mode {
+  display: flex;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+.fd-mode button {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 9px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.fd-mode button.on {
+  background: var(--purple);
+  color: #fff;
+}
+.fd-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  padding-bottom: 4px;
+}
+.fd-filters select {
+  flex-shrink: 0;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-size: 0.9rem;
+}
+.fd-clear {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--pink);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.fd-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.fd-photo {
+  position: relative;
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 5rem;
+}
+.fd-dots {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fd-body {
+  padding: 16px;
+}
+.fd-body h2 {
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+.fd-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 2px 0 8px;
+}
+.fd-body p {
+  color: var(--soft);
+  margin-bottom: 12px;
+}
+.fd-prompt {
+  background: var(--chip);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+.fd-prompt small {
+  color: var(--muted);
+  display: block;
+  margin-bottom: 2px;
+}
+.fd-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.fd-tags span {
+  background: var(--chip);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+}
+.fd-actions {
+  display: flex;
+  gap: 8px;
+}
+.fd-actions button {
+  border-radius: 999px;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.fd-like,
+.fd-msg {
+  flex: 1;
+}
+.fd-like {
+  background: var(--pink);
+  color: #fff;
+  border: 1px solid var(--pink);
+}
+.fd-like.on {
+  background: transparent;
+  color: var(--pink);
+}
+.fd-msg,
+.fd-ico {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.fd-ico {
+  width: 48px;
+  font-size: 1.2rem;
+  padding: 0;
+}
+
+/* Loading skeletons */
+.sk {
+  background: linear-gradient(90deg, var(--chip) 25%, var(--line) 50%, var(--chip) 75%);
+  background-size: 200% 100%;
+  animation: sk 1.2s infinite;
+  border-radius: 8px;
+}
+.sk-photo {
+  height: 260px;
+  border-radius: 0;
+}
+.sk-line {
+  height: 14px;
+  margin-bottom: 12px;
+}
+.w90 {
+  width: 90%;
+}
+.w60 {
+  width: 60%;
+}
+.w40 {
+  width: 40%;
+}
+@keyframes sk {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.fd-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.fd-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.fd-filter-btn.on {
+  border-color: var(--purple);
+}
+.fd-count {
+  background: var(--pink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 1px 7px;
+}
+.fd-filters {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.fd-photo {
+  cursor: pointer;
+}
+.fd-initial {
+  font-size: 5rem;
+  font-weight: 600;
+}
+.fd-name {
+  cursor: pointer;
+}
+
+.fd-panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+.fd-panel .fd-mode {
+  background: var(--bg);
+  margin-bottom: 10px;
+}
+.fd-panel .fd-filters {
+  margin-bottom: 0;
+}

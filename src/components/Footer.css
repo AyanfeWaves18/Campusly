@@ -1,0 +1,35 @@
+.ft {
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  text-align: center;
+  padding: 26px 5%;
+  color: var(--muted);
+}
+.ft-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  margin-bottom: 12px;
+}
+.ft-links a {
+  color: #d8d6ce;
+  font-size: 1rem;
+}
+.ft-links a:hover {
+  color: var(--gold);
+}
+.ft-small a {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.ft p {
+  font-size: 0.85rem;
+}
+
+.ft-small a {
+  color: var(--soft2);
+  font-size: 0.95rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
