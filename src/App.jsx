@@ -7,7 +7,7 @@ import Feed from "./pages/Feed.jsx";
 import UserProfile from "./pages/UserProfile.jsx";
 import Matches from "./pages/Matches.jsx";
 import Messages from "./pages/Messages.jsx";
-import Chat from "./pages/chat.jsx";
+import Chat from "./pages/Chat.jsx";
 import Events from "./pages/Events.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
