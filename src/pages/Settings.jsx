@@ -1,19 +1,22 @@
-import { checkPassword } from "../utils/validate.js";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import { useToast } from "../components/Toast.jsx";
 import {
   applyTheme,
-  clearAll,
   currentTheme,
+  deleteMyAccount,
+  emailKey,
+  findActiveAccount,
   getUser,
   load,
   saveUser,
   setLoggedIn,
   toggleTheme,
   unblockUser,
+  updateRegistry,
 } from "../utils/storage.js";
+import { checkPassword } from "../utils/validate.js";
 import { profiles } from "../utils/data.js";
 import "./Inner.css";
 
@@ -32,8 +35,20 @@ export default function Settings() {
       toast("Check your name, phone number, and email", "err");
       return;
     }
+    // The new email or phone number can't belong to another active account
+    const taken = findActiveAccount(account.email, account.phone, user.accountId);
+    if (taken) {
+      toast(
+        taken.email === emailKey(account.email)
+          ? "That email is already used by another account"
+          : "That phone number is already used by another account",
+        "err"
+      );
+      return;
+    }
     const updated = { ...user, ...account };
     saveUser(updated);
+    if (user.accountId) updateRegistry(user.accountId, account);
     setUser(updated);
     toast("Account details saved");
   }
@@ -44,7 +59,7 @@ export default function Settings() {
       toast("Your current password is incorrect", "err");
       return;
     }
-        const pwError = checkPassword(pw.next);
+    const pwError = checkPassword(pw.next);
     if (pwError) {
       toast(pwError, "err");
       return;
@@ -74,11 +89,13 @@ export default function Settings() {
   }
 
   function deleteAccount() {
-    if (window.confirm("Delete your account? This can't be undone.")) {
-      clearAll();
-      applyTheme();
-      navigate("/");
-    }
+    const ok = window.confirm(
+      "Delete your account?\n\nYour profile, photos, matches and chats will be removed. You can sign up again later with the same email or phone number."
+    );
+    if (!ok) return;
+    deleteMyAccount(user); // removes your data, keeps a registration record
+    applyTheme();
+    navigate("/");
   }
 
   const blockedProfiles = profiles.filter((p) => blocked.includes(p.id));
@@ -102,7 +119,7 @@ export default function Settings() {
           <label>Current password</label>
           <input type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
           <label>New password</label>
-          <input type="password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+          <input type="password" maxLength="15" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
           <button type="submit" className="in-btn">Change password</button>
         </form>
 

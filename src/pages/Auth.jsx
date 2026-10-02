@@ -3,7 +3,17 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Logo from "../components/Logo.jsx";
 import { useToast } from "../components/Toast.jsx";
-import { getUser, load, saveUser, setLoggedIn } from "../utils/storage.js";
+import {
+  addToRegistry,
+  emailKey,
+  ensureRegistered,
+  findActiveAccount,
+  getUser,
+  load,
+  phoneKey,
+  saveUser,
+  setLoggedIn,
+} from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { googleSignIn } from "../utils/google.js";
 import {
@@ -18,8 +28,6 @@ import "./Auth.css";
 
 const DEMO_CODE = "123456";
 const digits = (s) => (s || "").replace(/\D/g, "");
-// Phone numbers are compared by their last 10 digits, so 0801... and +234801... match
-const last10 = (s) => digits(s).slice(-10);
 
 function PasswordField({ value, onChange, placeholder, show, setShow, name = "password" }) {
   return (
@@ -153,10 +161,15 @@ export default function Auth({ mode }) {
     try {
       const gu = await googleSignIn();
       const existing = getUser();
-      if (existing && existing.email?.toLowerCase() === gu.email?.toLowerCase()) {
+      if (existing && emailKey(existing.email) === emailKey(gu.email)) {
+        ensureRegistered(existing);
         setLoggedIn(true);
         toast(`Welcome back, ${existing.name.split(" ")[0]}`);
         navigate("/feed");
+        return;
+      }
+      if (findActiveAccount(gu.email, "")) {
+        setError("An account with this email already exists. Log in instead.");
         return;
       }
       if (mode === "signup") {
@@ -198,6 +211,16 @@ export default function Auth({ mode }) {
       setError(pwError);
       return;
     }
+    // An email or phone number can only belong to one active account
+    const dup = findActiveAccount(form.email, form.phone);
+    if (dup) {
+      setError(
+        dup.email === emailKey(form.email)
+          ? "An account with this email already exists. Log in instead."
+          : "An account with this phone number already exists. Log in instead."
+      );
+      return;
+    }
     setError("");
     setStep(2);
   }
@@ -214,11 +237,13 @@ export default function Auth({ mode }) {
     }
     if (googleUser) {
       // Google already verified this email, so no code is needed
-      saveUser({ ...form, password: "", uni, verified: true, google: true, prompts: {} });
+      const account = { ...form, password: "", uni, verified: true, google: true, prompts: {} };
+      saveUser({ ...account, accountId: addToRegistry(account) });
       setLoggedIn(true);
       navigate("/feed");
     } else {
-      saveUser({ ...form, uni, verified: false, prompts: {} });
+      const account = { ...form, uni, verified: false, prompts: {} };
+      saveUser({ ...account, accountId: addToRegistry(account) });
       setLoggedIn(true);
       navigate("/verify"); // the code is sent once, right after first signup
     }
@@ -244,12 +269,13 @@ export default function Auth({ mode }) {
     }
     const idMatches =
       loginBy === "email"
-        ? user?.email?.toLowerCase() === login.id.trim().toLowerCase()
-        : last10(user?.phone) === last10(login.id);
+        ? emailKey(user?.email) === emailKey(login.id)
+        : phoneKey(user?.phone) === phoneKey(login.id);
     if (!user || !idMatches || user.password !== login.password) {
       setError(`That ${loginBy === "email" ? "email" : "phone number"} or password is incorrect.`);
       return;
     }
+    ensureRegistered(user);
     setLoggedIn(true);
     navigate("/feed");
   }
@@ -276,8 +302,8 @@ export default function Auth({ mode }) {
     const found =
       u &&
       (fMethod === "email"
-        ? u.email?.toLowerCase() === value.toLowerCase()
-        : last10(u.phone) === last10(value));
+        ? emailKey(u.email) === emailKey(value)
+        : phoneKey(u.phone) === phoneKey(value));
     if (!found) {
       setError(`We couldn't find an account with that ${fMethod === "email" ? "email" : "phone number"}.`);
       return;
