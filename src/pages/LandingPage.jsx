@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
-import Logo from "../components/logo.jsx";
+import Logo from "../components/Logo.jsx";
 import { ChevronIcon } from "../components/Icons.jsx";
 import { save } from "../utils/storage.js";
 import "./LandingPage.css";

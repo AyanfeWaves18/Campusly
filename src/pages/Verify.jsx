@@ -1,4 +1,4 @@
-import Logo from "../components/logo.jsx";
+import Logo from "../components/Logo.jsx";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast.jsx";

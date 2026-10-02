@@ -1,6 +1,6 @@
 import { useToast } from "./Toast.jsx";
 import { checkReminders } from "../utils/reminders.js";
-import Logo from "./logo.jsx";
+import Logo from "./Logo.jsx";
 import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import Footer from "./Footer.jsx";
