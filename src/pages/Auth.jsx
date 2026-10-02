@@ -17,7 +17,9 @@ import {
 import "./Auth.css";
 
 const DEMO_CODE = "123456";
-const digits = (s) => s.replace(/\D/g, "");
+const digits = (s) => (s || "").replace(/\D/g, "");
+// Phone numbers are compared by their last 10 digits, so 0801... and +234801... match
+const last10 = (s) => digits(s).slice(-10);
 
 function PasswordField({ value, onChange, placeholder, show, setShow, name = "password" }) {
   return (
@@ -103,7 +105,10 @@ export default function Auth({ mode }) {
     interests: [],
     bio: "",
   });
-  const [login, setLogin] = useState({ email: "", password: "" });
+
+  // Log in: with email or with phone number
+  const [loginBy, setLoginBy] = useState("email");
+  const [login, setLogin] = useState({ id: "", password: "" });
 
   // Forgotten password flow
   const [fStep, setFStep] = useState("request"); // request | code | reset
@@ -163,9 +168,10 @@ export default function Auth({ mode }) {
       }
     } catch (e) {
       setError(
-        e.message === "no-client-id"
-          ? "Google sign-in isn't set up yet. Add your Google client ID to the .env file."
-          : "Google sign-in was cancelled or failed. Please try again."
+        e.userMessage ||
+          (e.message === "no-client-id"
+            ? "Google sign-in isn't set up yet. Add your Google client ID to the .env file."
+            : "Google sign-in was cancelled or failed. Please try again.")
       );
     } finally {
       setBusy(false);
@@ -219,19 +225,29 @@ export default function Auth({ mode }) {
   }
 
   /* ---------- Log in (no code needed) ---------- */
+  function switchLogin() {
+    setLoginBy(loginBy === "email" ? "phone" : "email");
+    setLogin({ ...login, id: "" });
+    setError("");
+  }
+
   function handleLogin(e) {
     e.preventDefault();
     const user = getUser();
-    if (!login.email.trim() || !login.password) {
-      setError("Enter your email and password.");
+    if (!login.id.trim() || !login.password) {
+      setError(loginBy === "email" ? "Enter your email and password." : "Enter your phone number and password.");
       return;
     }
-    if (
-      !user ||
-      user.email.toLowerCase() !== login.email.trim().toLowerCase() ||
-      user.password !== login.password
-    ) {
-      setError("That email or password is incorrect.");
+    if (loginBy === "phone" && digits(login.id).length < 10) {
+      setError("Enter a valid phone number.");
+      return;
+    }
+    const idMatches =
+      loginBy === "email"
+        ? user?.email?.toLowerCase() === login.id.trim().toLowerCase()
+        : last10(user?.phone) === last10(login.id);
+    if (!user || !idMatches || user.password !== login.password) {
+      setError(`That ${loginBy === "email" ? "email" : "phone number"} or password is incorrect.`);
       return;
     }
     setLoggedIn(true);
@@ -261,7 +277,7 @@ export default function Auth({ mode }) {
       u &&
       (fMethod === "email"
         ? u.email?.toLowerCase() === value.toLowerCase()
-        : digits(u.phone || "") === digits(value));
+        : last10(u.phone) === last10(value));
     if (!found) {
       setError(`We couldn't find an account with that ${fMethod === "email" ? "email" : "phone number"}.`);
       return;
@@ -435,12 +451,12 @@ export default function Auth({ mode }) {
               <h1>Welcome back</h1>
               <p className="au-sub">Log in to see who's on your campus.</p>
 
-              <label>Email</label>
+              <label>{loginBy === "email" ? "Email" : "Phone number"}</label>
               <input
-                type="email"
-                placeholder="name@email.com"
-                value={login.email}
-                onChange={(e) => { setLogin({ ...login, email: e.target.value }); setError(""); }}
+                type={loginBy === "email" ? "email" : "tel"}
+                placeholder={loginBy === "email" ? "name@email.com" : "0801 234 5678"}
+                value={login.id}
+                onChange={(e) => { setLogin({ ...login, id: e.target.value }); setError(""); }}
               />
 
               <label>Password</label>
@@ -456,6 +472,12 @@ export default function Auth({ mode }) {
 
               {error && <div className="au-error">{error}</div>}
               <button type="submit" className="au-btn">Log in</button>
+
+              <button type="button" className="au-link" onClick={switchLogin}>
+                {loginBy === "email"
+                  ? "Forgot your email? Log in with your phone number"
+                  : "Log in with your email instead"}
+              </button>
 
               <GoogleButton onClick={handleGoogle} busy={busy} />
 

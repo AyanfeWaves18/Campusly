@@ -225,3 +225,14 @@
   cursor: pointer;
   font-size: 0.95rem;
 }
+
+.au-link {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--pink);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
