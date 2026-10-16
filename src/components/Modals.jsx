@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "./Toast.jsx";
-import { blockUser, getUser, load, reportUser, save } from "../utils/storage.js";
+import { getUser, load, save } from "../utils/storage.js";
 import { complimentPresets, reportReasons } from "../utils/options.js";
+import { blockPerson, reportPerson } from "../lib/blocks.js";
 import "./Modals.css";
 
 function Sheet({ onClose, title, children }) {
@@ -16,28 +17,40 @@ function Sheet({ onClose, title, children }) {
   );
 }
 
-/* Block or report someone */
+/* Block or report someone (saved in the cloud) */
 export function ReportModal({ profile, onClose, onDone }) {
   const toast = useToast();
   const [step, setStep] = useState("menu");
   const [reason, setReason] = useState("");
   const [note, setNote] = useState("");
   const [alsoBlock, setAlsoBlock] = useState(true);
+  const [busy, setBusy] = useState(false);
 
-  function doBlock() {
-    blockUser(profile.id);
+  async function doBlock() {
+    setBusy(true);
+    const res = await blockPerson(profile.id);
+    setBusy(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
     toast(`${profile.name} blocked`);
     onDone?.("block");
     onClose();
   }
 
-  function doReport() {
+  async function doReport() {
     if (!reason) {
       toast("Pick a reason first", "err");
       return;
     }
-    reportUser(profile.id, reason, note);
-    if (alsoBlock) blockUser(profile.id);
+    setBusy(true);
+    const res = await reportPerson(profile.id, reason, note, alsoBlock);
+    setBusy(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
     toast("Report sent. Thanks for keeping Campusly safe.");
     onDone?.(alsoBlock ? "block" : "report");
     onClose();
@@ -56,19 +69,24 @@ export function ReportModal({ profile, onClose, onDone }) {
       {step === "block" && (
         <>
           <p className="md-text">
-            {profile.name} won't see your profile and you won't see theirs. You can unblock them
-            later in account settings.
+            {profile.name} won't see your profile and you won't see theirs. Any likes between you are
+            removed. You can unblock them later in account settings.
           </p>
           <div className="md-row">
-            <button className="md-btn ghost" onClick={() => setStep("menu")}>Back</button>
-            <button className="md-btn danger" onClick={doBlock}>Block</button>
+            <button className="md-btn ghost" onClick={() => setStep("menu")} disabled={busy}>Back</button>
+            <button className="md-btn danger" onClick={doBlock} disabled={busy}>
+              {busy ? "Blocking..." : "Block"}
+            </button>
           </div>
         </>
       )}
 
       {step === "report" && (
         <>
-          <p className="md-text">Why are you reporting {profile.name}?</p>
+          <p className="md-text">
+            Why are you reporting {profile.name}? We'll also save your recent messages with them so
+            they can be reviewed.
+          </p>
           <div className="md-reasons">
             {reportReasons.map((r) => (
               <label key={r} className={reason === r ? "on" : ""}>
@@ -79,7 +97,7 @@ export function ReportModal({ profile, onClose, onDone }) {
           </div>
           <textarea
             rows="2"
-            maxLength="200"
+            maxLength="300"
             placeholder="Anything else we should know? (optional)"
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -89,8 +107,10 @@ export function ReportModal({ profile, onClose, onDone }) {
             Also block {profile.name}
           </label>
           <div className="md-row">
-            <button className="md-btn ghost" onClick={() => setStep("menu")}>Back</button>
-            <button className="md-btn" onClick={doReport}>Send report</button>
+            <button className="md-btn ghost" onClick={() => setStep("menu")} disabled={busy}>Back</button>
+            <button className="md-btn" onClick={doReport} disabled={busy}>
+              {busy ? "Sending..." : "Send report"}
+            </button>
           </div>
         </>
       )}

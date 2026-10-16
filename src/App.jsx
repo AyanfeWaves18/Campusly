@@ -3,18 +3,21 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import LandingPage from "./pages/LandingPage.jsx";
 import Auth from "./pages/Auth.jsx";
 import Verify from "./pages/Verify.jsx";
+import Onboarding from "./pages/Onboarding.jsx";
 import Feed from "./pages/Feed.jsx";
 import UserProfile from "./pages/UserProfile.jsx";
 import Matches from "./pages/Matches.jsx";
 import Messages from "./pages/Messages.jsx";
-import Chat from "./pages/Chat.jsx";
+import Chat from "./pages/chat.jsx";
 import Events from "./pages/Events.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
 import Info from "./pages/Info.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 import NotFound from "./pages/NotFound.jsx";
 import { CookieNotice } from "./components/Modals.jsx";
 import Protect from "./components/Protect.jsx";
+import AuthSync from "./components/AuthSync.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -28,13 +31,16 @@ export default function App() {
   return (
     <>
       <Protect />
+      <AuthSync />
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/signup" element={<Auth key="signup" mode="signup" />} />
         <Route path="/login" element={<Auth key="login" mode="login" />} />
         <Route path="/forgot" element={<Auth key="forgot" mode="forgot" />} />
+        <Route path="/reset" element={<ResetPassword />} />
         <Route path="/verify" element={<Verify />} />
+        <Route path="/welcome" element={<Onboarding />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/user/:id" element={<UserProfile />} />
         <Route path="/matches" element={<Matches />} />

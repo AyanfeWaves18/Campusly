@@ -1,39 +1,46 @@
-import Logo from "../components/Logo.jsx";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import Logo from "../components/Logo.jsx";
 import { useToast } from "../components/Toast.jsx";
-import { getUser, saveUser } from "../utils/storage.js";
+import { supabase } from "../lib/supabase.js";
+import { syncUser } from "../lib/auth.js";
 import "./Auth.css";
-import "./Pages.css";
 
 export default function Verify() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
-  const user = getUser();
-  const [method, setMethod] = useState("email");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState("");
+  const email = location.state?.email || "";
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    if (!user) navigate("/signup");
-  }, [user, navigate]);
+    if (!email) navigate("/signup", { replace: true });
+  }, [email, navigate]);
 
-  if (!user) return null;
+  if (!email) return null;
 
-  const target =
-    method === "email"
-      ? user.email.replace(/(.{2}).+(@.+)/, "$1•••$2")
-      : "•••• ••• " + user.phone.replace(/\D/g, "").slice(-3);
+  const masked = email.replace(/(.{2}).+(@.+)/, "$1•••$2");
 
-  function submit(e) {
-    e.preventDefault();
-    if (code !== "123456") {
-      setError("That code isn't right. Try again.");
-      return;
-    }
-    saveUser({ ...user, verified: true });
-    toast("Account verified");
-    navigate("/feed");
+  async function resend() {
+    setBusy(true);
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/feed` },
+    });
+    setBusy(false);
+    if (error) toast("Please wait a little before asking for another email.", "err");
+    else toast("Email sent again. Check your inbox and spam folder.");
+  }
+
+  async function check() {
+    setBusy(true);
+    setMsg("");
+    const user = await syncUser();
+    setBusy(false);
+    if (user) navigate("/feed");
+    else setMsg("We can't see your confirmation yet. Open the link in the email first, then tap this again.");
   }
 
   return (
@@ -42,45 +49,26 @@ export default function Verify() {
         <Link to="/" className="au-logo"><Logo size={38} /></Link>
 
         <div className="au-card">
-          <div className="au-tabs">
-            <a
-              href="#email"
-              className={method === "email" ? "on" : ""}
-              onClick={(e) => { e.preventDefault(); setMethod("email"); setCode(""); setError(""); }}
-            >
-              Email
-            </a>
-            <a
-              href="#phone"
-              className={method === "phone" ? "on" : ""}
-              onClick={(e) => { e.preventDefault(); setMethod("phone"); setCode(""); setError(""); }}
-            >
-              Phone
-            </a>
+          <h1>Check your email</h1>
+          <p className="au-sub">
+            We sent a confirmation link to {masked}. Open it on this device and you'll be signed in
+            automatically.
+          </p>
+
+          {msg && <div className="au-error">{msg}</div>}
+
+          <button className="au-btn" onClick={check} disabled={busy}>
+            {busy ? "Please wait..." : "I've confirmed my email"}
+          </button>
+
+          <div className="vf-links">
+            <button type="button" onClick={resend} disabled={busy}>Resend email</button>
+            <button type="button" onClick={() => navigate("/login")}>Go to log in</button>
           </div>
-
-          <form onSubmit={submit}>
-            <h1>Verify your account</h1>
-            <p className="au-sub">We sent a 6-digit code to {target}.</p>
-
-            <input
-              className="vf-code"
-              inputMode="numeric"
-              maxLength="6"
-              placeholder="000000"
-              value={code}
-              onChange={(e) => { setCode(e.target.value.replace(/\D/g, "")); setError(""); }}
-            />
-
-            {error && <div className="au-error">{error}</div>}
-            <button type="submit" className="au-btn">Verify</button>
-
-            <div className="vf-links">
-              <button type="button" onClick={() => toast("A new code has been sent")}>Resend code</button>
-              <button type="button" onClick={() => navigate("/feed")}>Skip for now</button>
-            </div>
-            <p className="vf-hint">Demo mode: enter 123456</p>
-          </form>
+          <p className="vf-hint">
+            Can't find it? Check your spam folder. If you opened the link on another device, just log in
+            here.
+          </p>
         </div>
       </main>
     </div>

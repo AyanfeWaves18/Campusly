@@ -11,7 +11,9 @@ export default function Protect() {
       if (!isField(e.target)) e.preventDefault();
     };
     const onKeyDown = (e) => {
-      const k = e.key.toLowerCase();
+      // Autofill and some keyboards send key presses with no key name
+      const k = String(e.key || "").toLowerCase();
+      if (!k) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && ["c", "x", "p", "s", "u"].includes(k)) e.preventDefault();
       if (mod && k === "a" && !isField(e.target)) e.preventDefault();

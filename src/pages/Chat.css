@@ -201,3 +201,241 @@
 .ch-send.off {
   opacity: 0.45;
 }
+.ch-bar {
+  margin: 8px 12px;
+  background: var(--chip);
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 12px;
+  font-size: 0.85rem;
+  color: var(--soft);
+  line-height: 1.4;
+}
+.ch-bar.lock {
+  border-color: var(--pink);
+}
+.ch-bar button {
+  display: block;
+  margin-top: 8px;
+  background: var(--pink);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ch-form.locked {
+  opacity: 0.45;
+}
+.ch-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  opacity: 0.75;
+}
+.ch-ticks {
+  width: 16px;
+  height: 16px;
+}
+.ch-ticks.seen {
+  color: #8be0ff;
+}
+.ch-seen {
+  align-self: flex-end;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: -4px;
+}
+.ch-typing {
+  align-self: flex-start;
+  background: var(--chip);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 5px;
+}
+.ch-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: ch-bounce 1.2s infinite ease-in-out;
+}
+.ch-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.ch-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes ch-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+.ch-pop.emo-pop {
+  padding: 8px;
+}
+.vn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 190px;
+}
+.vn-btn {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #fff;
+  color: var(--purple);
+}
+.ch-msg.them .vn-btn {
+  background: var(--purple);
+  color: #fff;
+}
+.vn-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.vn-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+.ch-msg.them .vn-bar {
+  background: var(--line);
+}
+.vn-bar span {
+  display: block;
+  height: 100%;
+  background: #fff;
+}
+.ch-msg.them .vn-bar span {
+  background: var(--purple);
+}
+.vn-time {
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  opacity: 0.85;
+  min-width: 32px;
+  text-align: right;
+}
+.ch-msg.pending {
+  opacity: 0.6;
+}
+.rec {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+.rec-cancel {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  padding: 8px;
+}
+.rec-mid {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.rec-mid small {
+  color: var(--muted);
+}
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e24b4a;
+  animation: rec-pulse 1s infinite;
+}
+.rec-dot.off {
+  animation: none;
+  background: var(--muted);
+}
+@keyframes rec-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+.ch-peer {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ch-recording {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--chip);
+  border-radius: 16px;
+  padding: 9px 14px;
+}
+.ch-mic {
+  color: #e24b4a;
+  display: flex;
+  animation: rec-pulse 1s infinite;
+}
+.ch-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+.ch-bars i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--muted);
+  animation: ch-wave 1s infinite ease-in-out;
+}
+.ch-bars i:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.ch-bars i:nth-child(3) {
+  animation-delay: 0.24s;
+}
+.ch-bars i:nth-child(4) {
+  animation-delay: 0.36s;
+}
+.ch-bars i:nth-child(5) {
+  animation-delay: 0.48s;
+}
+@keyframes ch-wave {
+  0%,
+  100% {
+    transform: scaleY(0.25);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.ch-peer-text {
+  font-size: 0.7rem;
+  color: var(--muted);
+  padding-left: 6px;
+}

@@ -1,0 +1,38 @@
+.emo-cats {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  overflow-x: auto;
+}
+.emo-cats button {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.emo-grid {
+  position: relative;
+  height: 220px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  align-content: start;
+}
+.emo-grid button {
+  background: none;
+  border: none;
+  font-size: 1.45rem;
+  padding: 4px 0;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+.emo-cats button:hover,
+.emo-grid button:hover {
+  background: var(--chip);
+}

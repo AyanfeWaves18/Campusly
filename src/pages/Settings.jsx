@@ -1,62 +1,70 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import { useToast } from "../components/Toast.jsx";
+import { supabase } from "../lib/supabase.js";
+import { removeAllMyPhotos } from "../lib/photos.js";
+import { removeAllMyVoiceNotes } from "../lib/voice.js";
+import { changeMyPassword, saveProfileToCloud } from "../lib/profile.js";
+import { fetchMyBlocks, unblockPerson } from "../lib/blocks.js";
 import {
   applyTheme,
   currentTheme,
   deleteMyAccount,
-  emailKey,
-  findActiveAccount,
   getUser,
-  load,
-  saveUser,
   setLoggedIn,
   toggleTheme,
-  unblockUser,
-  updateRegistry,
 } from "../utils/storage.js";
 import { checkPassword } from "../utils/validate.js";
-import { profiles } from "../utils/data.js";
 import "./Inner.css";
 
 export default function Settings() {
   const navigate = useNavigate();
   const toast = useToast();
   const [user, setUser] = useState(() => getUser() || {});
-  const [account, setAccount] = useState({ name: user.name || "", phone: user.phone || "", email: user.email || "" });
+  const [name, setName] = useState(user.name || "");
+  const [savingName, setSavingName] = useState(false);
   const [pw, setPw] = useState({ current: "", next: "" });
+  const [savingPw, setSavingPw] = useState(false);
   const [theme, setTheme] = useState(currentTheme());
-  const [blocked, setBlocked] = useState(() => load("blocked", []));
+  const [blocks, setBlocks] = useState([]);
+  const [blocksLoading, setBlocksLoading] = useState(true);
+  const [unblocking, setUnblocking] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
-  function saveAccount(e) {
-    e.preventDefault();
-    if (!account.name.trim() || !account.phone.trim() || !account.email.includes("@")) {
-      toast("Check your name, phone number, and email", "err");
-      return;
-    }
-    // The new email or phone number can't belong to another active account
-    const taken = findActiveAccount(account.email, account.phone, user.accountId);
-    if (taken) {
-      toast(
-        taken.email === emailKey(account.email)
-          ? "That email is already used by another account"
-          : "That phone number is already used by another account",
-        "err"
-      );
-      return;
-    }
-    const updated = { ...user, ...account };
-    saveUser(updated);
-    if (user.accountId) updateRegistry(user.accountId, account);
-    setUser(updated);
-    toast("Account details saved");
+  async function loadBlocks() {
+    const res = await fetchMyBlocks();
+    if (res.error) toast(res.error, "err");
+    else setBlocks(res.blocks);
+    setBlocksLoading(false);
   }
 
-  function changePassword(e) {
+  useEffect(() => {
+    loadBlocks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function saveName(e) {
     e.preventDefault();
-    if (pw.current !== user.password) {
-      toast("Your current password is incorrect", "err");
+    if (!name.trim()) {
+      toast("Your name can't be empty", "err");
+      return;
+    }
+    setSavingName(true);
+    const { error } = await saveProfileToCloud({ name });
+    setSavingName(false);
+    if (error) {
+      toast(error, "err");
+      return;
+    }
+    setUser(getUser());
+    toast("Name saved");
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+    if (!pw.current) {
+      toast("Enter your current password", "err");
       return;
     }
     const pwError = checkPassword(pw.next);
@@ -64,54 +72,86 @@ export default function Settings() {
       toast(pwError, "err");
       return;
     }
-    const updated = { ...user, password: pw.next };
-    saveUser(updated);
-    setUser(updated);
+    setSavingPw(true);
+    const { error } = await changeMyPassword(pw.current, pw.next);
+    setSavingPw(false);
+    if (error) {
+      toast(error, "err");
+      return;
+    }
     setPw({ current: "", next: "" });
     toast("Password changed");
   }
 
-  function togglePrivacy(key) {
-    const updated = { ...user, privacy: { ...user.privacy, [key]: !user.privacy?.[key] } };
-    saveUser(updated);
-    setUser(updated);
+  // Saves to the cloud; if that fails, the switch goes back to where it was
+  async function togglePrivacy(key) {
+    const next = { ...user.privacy, [key]: !user.privacy?.[key] };
+    setUser({ ...user, privacy: next });
+    const { error } = await saveProfileToCloud({ privacy: next });
+    if (error) {
+      setUser(getUser());
+      toast(error, "err");
+    }
   }
 
-  function unblock(id) {
-    unblockUser(id);
-    setBlocked(load("blocked", []));
+  async function unblock(id) {
+    setUnblocking(id);
+    const res = await unblockPerson(id);
+    setUnblocking(null);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    setBlocks((list) => list.filter((b) => b.blocked_id !== id));
     toast("Unblocked");
   }
 
-  function logout() {
+  async function logout() {
+    await supabase.auth.signOut();
     setLoggedIn(false);
     navigate("/login");
   }
 
-  function deleteAccount() {
+  async function deleteAccount() {
     const ok = window.confirm(
       "Delete your account?\n\nYour profile, photos, matches and chats will be removed. You can sign up again later with the same email or phone number."
     );
     if (!ok) return;
-    deleteMyAccount(user); // removes your data, keeps a registration record
+    setDeleting(true);
+
+    await removeAllMyPhotos();
+    await removeAllMyVoiceNotes();
+
+    const { error } = await supabase.rpc("delete_my_account");
+    if (error) {
+      setDeleting(false);
+      toast("Couldn't delete your account. Please try again.", "err");
+      return;
+    }
+
+    await supabase.auth.signOut({ scope: "local" });
+    deleteMyAccount(user);
     applyTheme();
     navigate("/");
   }
 
-  const blockedProfiles = profiles.filter((p) => blocked.includes(p.id));
-
   return (
     <AppLayout>
       <div className="in-wrap">
-        <form className="in-card" onSubmit={saveAccount}>
+        <form className="in-card" onSubmit={saveName}>
           <h2>Account details</h2>
           <label>Full name</label>
-          <input value={account.name} onChange={(e) => setAccount({ ...account, name: e.target.value })} />
+          <input value={name} onChange={(e) => setName(e.target.value)} />
           <label>Phone number</label>
-          <input type="tel" value={account.phone} onChange={(e) => setAccount({ ...account, phone: e.target.value })} />
+          <input type="tel" value={user.phone || ""} disabled />
           <label>Email</label>
-          <input type="email" value={account.email} onChange={(e) => setAccount({ ...account, email: e.target.value })} />
-          <button type="submit" className="in-btn">Save details</button>
+          <input type="email" value={user.email || ""} disabled />
+          <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-4px 0 14px" }}>
+            Changing your email or phone number is coming soon.
+          </p>
+          <button type="submit" className="in-btn" disabled={savingName}>
+            {savingName ? "Saving..." : "Save name"}
+          </button>
         </form>
 
         <form className="in-card" onSubmit={changePassword}>
@@ -120,7 +160,9 @@ export default function Settings() {
           <input type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
           <label>New password</label>
           <input type="password" maxLength="15" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
-          <button type="submit" className="in-btn">Change password</button>
+          <button type="submit" className="in-btn" disabled={savingPw}>
+            {savingPw ? "Saving..." : "Change password"}
+          </button>
         </form>
 
         <div className="in-card">
@@ -159,13 +201,22 @@ export default function Settings() {
 
         <div className="in-card">
           <h2>Blocked people</h2>
-          {blockedProfiles.length === 0 ? (
+          {blocksLoading ? (
+            <p>Loading...</p>
+          ) : blocks.length === 0 ? (
             <p>You haven't blocked anyone.</p>
           ) : (
-            blockedProfiles.map((p) => (
-              <div className="in-row" key={p.id}>
-                <span style={{ color: "var(--text)" }}>{p.name}</span>
-                <button className="in-btn ghost" style={{ padding: "6px 16px" }} onClick={() => unblock(p.id)}>Unblock</button>
+            blocks.map((b) => (
+              <div className="in-row" key={b.blocked_id}>
+                <span style={{ color: "var(--text)" }}>{b.blocked_name || "Someone"}</span>
+                <button
+                  className="in-btn ghost"
+                  style={{ padding: "6px 16px" }}
+                  onClick={() => unblock(b.blocked_id)}
+                  disabled={unblocking === b.blocked_id}
+                >
+                  {unblocking === b.blocked_id ? "..." : "Unblock"}
+                </button>
               </div>
             ))
           )}
@@ -175,7 +226,9 @@ export default function Settings() {
           <h2>Session</h2>
           <div className="in-btns">
             <button className="in-btn ghost" onClick={logout}>Log out</button>
-            <button className="in-btn danger" onClick={deleteAccount}>Delete account</button>
+            <button className="in-btn danger" onClick={deleteAccount} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete account"}
+            </button>
           </div>
         </div>
       </div>

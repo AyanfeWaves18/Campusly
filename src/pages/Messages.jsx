@@ -1,11 +1,24 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import Avatar from "../components/Avatar.jsx";
-import { load } from "../utils/storage.js";
-import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
-import { profiles, receivedCompliments } from "../utils/data.js";
+import { useToast } from "../components/Toast.jsx";
+import { receivedCompliments } from "../utils/data.js";
+import { fetchConversations, fetchRequests, passPerson, subscribeToInbox } from "../lib/chat.js";
+import { likePerson } from "../lib/likes.js";
+import { fetchPeopleByIds } from "../lib/people.js";
 import "./Pages.css";
+
+const COLORS = [
+  ["#F4C0D1", "#72243E"],
+  ["#CECBF6", "#3C3489"],
+  ["#F5C4B3", "#712B13"],
+  ["#9FE1CB", "#085041"],
+  ["#FAC775", "#633806"],
+  ["#C0DD97", "#27500A"],
+  ["#B5D4F4", "#0C447C"],
+];
+const colorFor = (id) => COLORS[[...String(id)].reduce((n, c) => n + c.charCodeAt(0), 0) % COLORS.length];
 
 function time(t) {
   const d = new Date(t);
@@ -14,58 +27,198 @@ function time(t) {
     : d.toLocaleDateString([], { day: "numeric", month: "short" });
 }
 
+function PersonAvatar({ person }) {
+  const [bg, fg] = colorFor(person.id);
+  return <Avatar photo={person.photoUrl} name={person.name} bg={bg} fg={fg} size={44} />;
+}
+
 export default function Messages() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [tab, setTab] = useState("chats");
-  const chats = load("chats", {});
-  const blocked = load("blocked", []);
+  const [chats, setChats] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(null);
 
-  const threads = Object.keys(chats)
-    .map((id) => {
-      const p = profiles.find((x) => String(x.id) === id);
-      const msgs = chats[id];
-      return p && msgs.length && !blocked.includes(p.id) ? { p, last: msgs[msgs.length - 1] } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.last.t - a.last.t);
+  const load = useCallback(async (showSkeleton) => {
+    if (showSkeleton) setLoading(true);
+    const [c, r] = await Promise.all([fetchConversations(), fetchRequests()]);
+    if (c.error || r.error) {
+      setError(c.error || r.error);
+      setLoading(false);
+      return;
+    }
+    const ids = [...new Set([...c.chats.map((x) => x.partner_id), ...r.requests.map((x) => x.partner_id)])];
+    const res = await fetchPeopleByIds(ids);
+    if (res.error) {
+      setError(res.error);
+      setLoading(false);
+      return;
+    }
+    const byId = new Map((res.people || []).map((p) => [p.id, p]));
+    setError("");
+    setChats(
+      c.chats
+        .filter((x) => byId.has(x.partner_id))
+        .map((x) => ({ ...x, person: byId.get(x.partner_id) }))
+        .sort((a, b) => new Date(b.last_at) - new Date(a.last_at))
+    );
+    setRequests(
+      r.requests.filter((x) => byId.has(x.partner_id)).map((x) => ({ ...x, person: byId.get(x.partner_id) }))
+    );
+    setLoading(false);
+  }, []);
+
+  // Load now, and again whenever someone sends you a message
+  useEffect(() => {
+    load(true);
+    const stop = subscribeToInbox(() => load(false));
+    return stop;
+  }, [load]);
+
+  const received = requests.filter((r) => r.direction === "received");
+  const sent = requests.filter((r) => r.direction === "sent");
+
+  async function likeBack(r) {
+    setBusy(r.partner_id);
+    const res = await likePerson(r.partner_id);
+    setBusy(null);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    if (res.match) {
+      toast(`It's a match with ${r.person.name}!`, "match");
+      navigate(`/chat/${r.partner_id}`);
+    } else {
+      toast("Liked!");
+      load(false);
+    }
+  }
+
+  async function notNow(r) {
+    setBusy(r.partner_id);
+    const res = await passPerson(r.partner_id);
+    setBusy(null);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    setRequests((list) => list.filter((x) => x.partner_id !== r.partner_id));
+    toast("Removed from your requests");
+  }
 
   return (
     <AppLayout>
       <div className="pg">
         <h1>Messages</h1>
-        <p className="pg-sub">Your chats and anonymous compliments.</p>
+        <p className="pg-sub">Your chats, requests, and anonymous compliments.</p>
 
         <div className="pg-tabs">
           <button className={tab === "chats" ? "on" : ""} onClick={() => setTab("chats")}>Chats</button>
+          <button className={tab === "requests" ? "on" : ""} onClick={() => setTab("requests")}>
+            Requests
+            {received.length > 0 && <span className="tab-count">{received.length}</span>}
+          </button>
           <button className={tab === "compliments" ? "on" : ""} onClick={() => setTab("compliments")}>Compliments</button>
         </div>
 
-        {tab === "chats" &&
-          (threads.length === 0 ? (
+        {tab !== "compliments" && loading && (
+          <>
+            {[1, 2, 3].map((n) => (
+              <div className="row plain" key={n}>
+                <div className="sk" style={{ width: 44, height: 44, borderRadius: "50%" }}></div>
+                <div className="row-main"><div className="sk sk-line w60" style={{ margin: 0 }}></div></div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {tab !== "compliments" && !loading && error && (
+          <div className="empty">
+            <i className="ti ti-wifi-off"></i>
+            <h3>Couldn't load your messages</h3>
+            <p>{error}</p>
+            <a href="/messages" onClick={(e) => { e.preventDefault(); load(true); }}>Try again</a>
+          </div>
+        )}
+
+        {/* CHATS */}
+        {tab === "chats" && !loading && !error && (
+          chats.length === 0 ? (
             <div className="empty">
               <i className="ti ti-message-off"></i>
-              <h3>No messages yet</h3>
-              <p>Say hi to someone on the feed, or to one of your matches.</p>
+              <h3>No chats yet</h3>
+              <p>Like someone on the feed, then send them a message. Anyone who likes you appears under Requests.</p>
               <Link to="/feed">Go to the feed</Link>
             </div>
           ) : (
-            threads.map(({ p, last }) => (
-              <div className="row" role="button" tabIndex={0} key={p.id} onClick={() => navigate(`/chat/${p.id}`)}>
-                <Link to={`/user/${p.id}`} onClick={(e) => e.stopPropagation()} aria-label={`View ${p.name}'s profile`}>
-                  <Avatar name={p.name} bg={p.bg} fg={p.fg} />
-                </Link>
+            chats.map((c) => (
+              <button className="row" key={c.partner_id} onClick={() => navigate(`/chat/${c.partner_id}`)}>
+                <PersonAvatar person={c.person} />
                 <div className="row-main">
-                  <b>{p.name}</b>
-                  <span>
-                    {last.from === "me" ? "You: " : ""}
-                    {last.text || (last.img ? "Photo" : last.file ? last.file.name : "")}
-                  </span>
+                  <b>{c.person.name}</b>
+                  <span>{c.last_body ? `${c.last_from_me ? "You: " : ""}${c.last_body}` : "It's a match. Say hi!"}</span>
                 </div>
-                <small>{time(last.t)}</small>
-              </div>
+                <small>{time(c.last_at)}</small>
+              </button>
             ))
-          ))}
+          )
+        )}
 
+        {/* REQUESTS */}
+        {tab === "requests" && !loading && !error && (
+          requests.length === 0 ? (
+            <div className="empty">
+              <i className="ti ti-mail-opened"></i>
+              <h3>No requests</h3>
+              <p>When someone likes you, they appear here. People you've liked who haven't answered show up here too.</p>
+              <Link to="/feed">Go to the feed</Link>
+            </div>
+          ) : (
+            <>
+              {received.length > 0 && <div className="rq-label">Wants to chat with you</div>}
+              {received.map((r) => (
+                <div className="rq" key={r.partner_id}>
+                  <button className="rq-top" onClick={() => navigate(`/chat/${r.partner_id}`)}>
+                    <PersonAvatar person={r.person} />
+                    <div className="row-main">
+                      <b>{r.person.name}</b>
+                      <span>{r.last_msg || "Liked you"}</span>
+                    </div>
+                    {r.msg_count > 0 && <span className="rq-badge">{r.msg_count}</span>}
+                  </button>
+                  <div className="rq-actions">
+                    <button className="rq-like" disabled={busy === r.partner_id} onClick={() => likeBack(r)}>
+                      Like back
+                    </button>
+                    <button className="rq-pass" disabled={busy === r.partner_id} onClick={() => notNow(r)}>
+                      Not now
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {sent.length > 0 && <div className="rq-label">Waiting for a reply</div>}
+              {sent.map((r) => (
+                <div className="rq" key={r.partner_id}>
+                  <button className="rq-top" onClick={() => navigate(`/chat/${r.partner_id}`)}>
+                    <PersonAvatar person={r.person} />
+                    <div className="row-main">
+                      <b>{r.person.name}</b>
+                      <span>You liked them</span>
+                    </div>
+                    <span className="rq-wait">Waiting</span>
+                  </button>
+                </div>
+              ))}
+            </>
+          )
+        )}
+
+        {/* COMPLIMENTS (sample data for now) */}
         {tab === "compliments" &&
           receivedCompliments.map((c) => (
             <div className="row plain" key={c.id}>

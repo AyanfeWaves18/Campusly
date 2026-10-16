@@ -1,4 +1,5 @@
-const CACHE = "campusly-v1";
+// Campusly service worker: keeps only the app's own files, never private data
+const CACHE = "campusly-shell-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 
@@ -12,14 +13,23 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  if (e.request.method !== "GET" || !e.request.url.startsWith("http")) return;
+  const req = e.request;
+  if (req.method !== "GET") return;
+  const url = new URL(req.url);
+
+  // Only our own files. Never Supabase, Google, photos, voice notes, or anything private.
+  if (url.origin !== self.location.origin) return;
+
   e.respondWith(
-    fetch(e.request)
+    fetch(req)
       .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        const isShell = req.mode === "navigate" || /\.(js|css|png|svg|ico|woff2?|json)$/.test(url.pathname);
+        if (res.ok && isShell) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy));
+        }
         return res;
       })
-      .catch(() => caches.match(e.request).then((r) => r || caches.match("/")))
+      .catch(() => caches.match(req).then((r) => r || caches.match("/")))
   );
 });

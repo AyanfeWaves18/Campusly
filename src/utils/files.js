@@ -1,6 +1,6 @@
 export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 export const DOC_EXT = ["pdf", "doc", "docx", "txt"];
-export const MAX_IMAGE = 5 * 1024 * 1024;
+   export const MAX_IMAGE = 20 * 1024 * 1024;
 export const MAX_DOC = 1024 * 1024;
 
 export function formatSize(bytes) {
@@ -39,7 +39,7 @@ export function compressImage(file, max = 900, quality = 0.8) {
 
 export function checkImage(file) {
   if (!IMAGE_TYPES.includes(file.type)) return "Only JPG, PNG, WEBP or GIF images are allowed.";
-  if (file.size > MAX_IMAGE) return "Images must be under 5 MB.";
+  if (file.size > MAX_IMAGE) return "   Images must be under 20 MB.";
   return "";
 }
 

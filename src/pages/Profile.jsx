@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import Avatar from "../components/Avatar.jsx";
@@ -6,28 +6,44 @@ import CalendarSheet from "../components/CalendarSheet.jsx";
 import Lightbox from "../components/Lightbox.jsx";
 import { XIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
-import { getUser, load, save } from "../utils/storage.js";
-import { completeness, events, formatWhen, userPhotos } from "../utils/data.js";
-import { checkImage, compressImage } from "../utils/files.js";
+import { getUser, load } from "../utils/storage.js";
+import { completeness, events, formatWhen } from "../utils/data.js";
 import { departments, levels, interestsList, promptQuestions } from "../utils/options.js";
+import { saveProfileToCloud } from "../lib/profile.js";
+import { addPhoto, loadPhotoUrls, removePhoto as removePhotoFromCloud, MAX_PHOTOS } from "../lib/photos.js";
 import "./Inner.css";
-
-const MAX_PHOTOS = 4;
 
 export default function Profile() {
   const toast = useToast();
   const [user, setUser] = useState(() => getUser() || {});
   const [draft, setDraft] = useState(user);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [urls, setUrls] = useState({});
   const [viewIndex, setViewIndex] = useState(null);
   const [calEvent, setCalEvent] = useState(null);
 
+  // Photos are stored in the cloud as file paths. Old on-device test photos are ignored.
+  const paths = (user.photos || []).filter((p) => typeof p === "string" && !p.startsWith("data:"));
+
   const { pct, items } = completeness(user);
-  const photos = userPhotos(user);
   const going = load("going", []);
   const myEvents = events
     .filter((e) => going.includes(e.id) && e.start > Date.now())
     .sort((a, b) => a.start - b.start);
+
+  // The photo bucket is private, so ask for temporary viewing links
+  useEffect(() => {
+    let cancelled = false;
+    loadPhotoUrls(paths).then((map) => {
+      if (!cancelled) setUrls(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paths.join("|")]);
 
   function change(e) {
     setDraft({ ...draft, [e.target.name]: e.target.value });
@@ -43,57 +59,55 @@ export default function Profile() {
     });
   }
 
-  function saveProfile() {
+  async function saveProfile() {
     if (!draft.name?.trim()) {
       toast("Your name can't be empty", "err");
       return;
     }
-    const updated = { ...draft, photos: userPhotos(getUser()) };
-    delete updated.photo;
-    save("user", updated);
-    setUser(updated);
+    setSaving(true);
+    const { error } = await saveProfileToCloud({
+      name: draft.name,
+      department: draft.department,
+      level: draft.level,
+      bio: draft.bio || "",
+      interests: draft.interests || [],
+      prompts: draft.prompts || {},
+    });
+    setSaving(false);
+    if (error) {
+      toast(error, "err");
+      return;
+    }
+    setUser(getUser());
     setEditing(false);
     toast("Profile saved");
-  }
-
-  function updatePhotos(list) {
-    const updated = { ...getUser(), photos: list };
-    delete updated.photo;
-    if (!save("user", updated)) {
-      toast("Storage is full. Remove a photo and try again.", "err");
-      return false;
-    }
-    setUser(updated);
-    return true;
   }
 
   async function onPhoto(e) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
-    const err = checkImage(file);
-    if (err) {
-      toast(err, "err");
+    if (!file || uploading) return;
+    setUploading(true);
+    const { error } = await addPhoto(file);
+    setUploading(false);
+    if (error) {
+      toast(error, "err");
       return;
     }
-    if (photos.length >= MAX_PHOTOS) {
-      toast(`You can add up to ${MAX_PHOTOS} photos`, "err");
-      return;
-    }
-    try {
-      const url = await compressImage(file, 600, 0.8);
-      if (updatePhotos([...photos, url])) toast("Photo added");
-    } catch {
-      toast("Couldn't read that image", "err");
-    }
+    setUser(getUser());
+    toast("Photo added");
   }
 
-  function removePhoto(i) {
+  async function removePhoto(i) {
     if (!window.confirm("Remove this photo?")) return;
-    if (updatePhotos(photos.filter((_, n) => n !== i))) {
-      toast("Photo removed");
-      setViewIndex(null);
+    const { error } = await removePhotoFromCloud(paths[i]);
+    if (error) {
+      toast(error, "err");
+      return;
     }
+    setUser(getUser());
+    setViewIndex(null);
+    toast("Photo removed");
   }
 
   const answered = Object.entries(user.prompts || {}).filter(([, a]) => a);
@@ -103,7 +117,7 @@ export default function Profile() {
       <div className="in-wrap">
         <div className="in-card">
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <Avatar photo={photos[0]} name={user.name} size={92} />
+            <Avatar photo={urls[paths[0]]} name={user.name} size={92} />
           </div>
 
           {!editing ? (
@@ -174,8 +188,10 @@ export default function Profile() {
               ))}
 
               <div className="in-btns">
-                <button className="in-btn" onClick={saveProfile}>Save changes</button>
-                <button className="in-btn ghost" onClick={() => setEditing(false)}>Cancel</button>
+                <button className="in-btn" onClick={saveProfile} disabled={saving}>
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+                <button className="in-btn ghost" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
               </div>
             </>
           )}
@@ -184,24 +200,34 @@ export default function Profile() {
         <div className="in-card">
           <h2>My photos</h2>
           <div className="ph-grid">
-            {photos.map((src, i) => (
-              <div className="ph-item" key={i}>
-                <img src={src} alt={`Photo ${i + 1}`} onClick={() => setViewIndex(i)} />
+            {paths.map((p, i) => (
+              <div className="ph-item" key={p}>
+                {urls[p] ? (
+                  <img src={urls[p]} alt={`Photo ${i + 1}`} onClick={() => setViewIndex(i)} />
+                ) : (
+                  <div className="sk" style={{ width: "100%", height: "100%" }}></div>
+                )}
                 <button className="ph-x" onClick={() => removePhoto(i)} aria-label="Remove photo">
                   <XIcon size={16} />
                 </button>
               </div>
             ))}
-            {photos.length < MAX_PHOTOS && (
+            {paths.length < MAX_PHOTOS && (
               <label className="ph-add">
-                <span style={{ fontSize: "1.6rem" }}>+</span>
-                Add photo
-                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={onPhoto} hidden />
+                <span style={{ fontSize: "1.6rem" }}>{uploading ? "..." : "+"}</span>
+                {uploading ? "Uploading" : "Add photo"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={onPhoto}
+                  disabled={uploading}
+                  hidden
+                />
               </label>
             )}
           </div>
           <p className="ph-hint">
-            Up to {MAX_PHOTOS} photos. JPG, PNG, WEBP or GIF, max 5 MB each. Tap a photo to view it. The
+            Up to {MAX_PHOTOS} photos. JPG, PNG, WEBP or GIF, max 20 MB each. Tap a photo to view it. The
             first photo is your main one.
           </p>
         </div>
@@ -247,8 +273,12 @@ export default function Profile() {
         </div>
       </div>
 
-      {viewIndex !== null && photos[viewIndex] && (
-        <Lightbox src={photos[viewIndex]} onClose={() => setViewIndex(null)} onRemove={() => removePhoto(viewIndex)} />
+      {viewIndex !== null && urls[paths[viewIndex]] && (
+        <Lightbox
+          src={urls[paths[viewIndex]]}
+          onClose={() => setViewIndex(null)}
+          onRemove={() => removePhoto(viewIndex)}
+        />
       )}
       {calEvent && <CalendarSheet ev={calEvent} onClose={() => setCalEvent(null)} />}
     </AppLayout>

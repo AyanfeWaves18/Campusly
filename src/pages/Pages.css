@@ -313,3 +313,71 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+.rq-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 14px 0 8px;
+}
+.rq {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.rq-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.rq-actions {
+  display: flex;
+  gap: 8px;
+  padding: 0 14px 12px;
+}
+.rq-actions button {
+  flex: 1;
+  border-radius: 999px;
+  padding: 9px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.rq-like {
+  background: var(--pink);
+  color: #fff;
+  border: 1px solid var(--pink);
+}
+.rq-pass {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.rq-badge {
+  background: var(--pink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 2px 9px;
+  flex-shrink: 0;
+}
+.rq-wait {
+  color: var(--muted);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+.tab-count {
+  background: var(--pink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  padding: 1px 7px;
+  margin-left: 6px;
+}
