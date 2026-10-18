@@ -62,7 +62,7 @@ export default function LandingPage() {
             Meet someone
             <span>on your campus.</span>
           </h1>
-          <p>Verified students only. Real people, real vibes, a few minutes from you.</p>
+             <p>Real people, real vibes, a few minutes from you.</p>
 
           <div className="lp-picker" id="join">
             <div className="lp-dd" ref={ref}>
