@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import Captcha from "./Captcha.jsx";
 import { supabase } from "../lib/supabase.js";
 
 export default function ForgotForm() {
@@ -8,6 +9,8 @@ export default function ForgotForm() {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   async function submit(e) {
     e.preventDefault();
@@ -19,11 +22,17 @@ export default function ForgotForm() {
     setError("");
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: `${window.location.origin}/reset`,
+      captchaToken,
     });
     setBusy(false);
+    setCaptchaToken("");
+    setCaptchaReset((n) => n + 1);
     if (err) {
+      const msg = (err.message || "").toLowerCase();
       setError(
-        err.status === 429
+        msg.includes("captcha")
+          ? "The security check didn't pass. Wait a moment for it to finish, then try again."
+          : err.status === 429
           ? "Too many requests. Please wait a while and try again."
           : "We couldn't send the email. Please try again."
       );
@@ -73,6 +82,8 @@ export default function ForgotForm() {
         value={email}
         onChange={(e) => { setEmail(e.target.value); setError(""); }}
       />
+
+      <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} />
 
       {error && <div className="au-error">{error}</div>}
       <button type="submit" className="au-btn" disabled={busy}>

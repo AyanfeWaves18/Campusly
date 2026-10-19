@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
+import Captcha from "../components/Captcha.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { supabase } from "../lib/supabase.js";
 import { removeAllMyPhotos } from "../lib/photos.js";
@@ -26,6 +27,8 @@ export default function Settings() {
   const [savingName, setSavingName] = useState(false);
   const [pw, setPw] = useState({ current: "", next: "" });
   const [savingPw, setSavingPw] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
   const [theme, setTheme] = useState(currentTheme());
   const [blocks, setBlocks] = useState([]);
   const [blocksLoading, setBlocksLoading] = useState(true);
@@ -73,8 +76,10 @@ export default function Settings() {
       return;
     }
     setSavingPw(true);
-    const { error } = await changeMyPassword(pw.current, pw.next);
+    const { error } = await changeMyPassword(pw.current, pw.next, captchaToken);
     setSavingPw(false);
+    setCaptchaToken("");
+    setCaptchaReset((n) => n + 1);
     if (error) {
       toast(error, "err");
       return;
@@ -160,6 +165,7 @@ export default function Settings() {
           <input type="password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
           <label>New password</label>
           <input type="password" maxLength="15" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+          <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} />
           <button type="submit" className="in-btn" disabled={savingPw}>
             {savingPw ? "Saving..." : "Change password"}
           </button>

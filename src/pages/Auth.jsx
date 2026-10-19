@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import Captcha from "../components/Captcha.jsx";
 import Footer from "../components/Footer.jsx";
-import Logo from "../components/Logo.jsx";
 import ForgotForm from "../components/ForgotForm.jsx";
+import Logo from "../components/Logo.jsx";
 import { getUser, load } from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { signInUser, signInWithGoogle, signUpUser } from "../lib/auth.js";
@@ -84,6 +85,8 @@ export default function Auth({ mode }) {
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaReset, setCaptchaReset] = useState(0);
 
   const [form, setForm] = useState({
     name: "",
@@ -109,6 +112,12 @@ export default function Auth({ mode }) {
 
   if (!uni) return null;
 
+  // A security-check token works only once, so ask for a fresh one after every attempt
+  function spendCaptcha() {
+    setCaptchaToken("");
+    setCaptchaReset((n) => n + 1);
+  }
+
   function update(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError("");
@@ -132,7 +141,7 @@ export default function Auth({ mode }) {
   }
 
   const comingSoon = (what) => setError(`${what} is being connected to the real database. Coming in the next step.`);
-  
+
   async function handleGoogle() {
     setError("");
     setBusy(true);
@@ -180,9 +189,10 @@ export default function Auth({ mode }) {
     }
     setBusy(true);
     setError("");
-    const { error: err, field, signedIn } = await signUpUser(form, uni);
+    const { error: err, field, signedIn } = await signUpUser(form, uni, captchaToken);
     setBusy(false);
     if (err) {
+      spendCaptcha();
       if (field) setStep(1); // email or phone problem: go back to where they can fix it
       setError(err);
       return;
@@ -213,9 +223,10 @@ export default function Auth({ mode }) {
     }
     setBusy(true);
     setError("");
-    const { error: err } = await signInUser(login.id, login.password);
+    const { error: err } = await signInUser(login.id, login.password, captchaToken);
     setBusy(false);
     if (err) {
+      spendCaptcha();
       setError(err);
       return;
     }
@@ -333,6 +344,8 @@ export default function Auth({ mode }) {
                 onChange={update}
               />
 
+              <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} />
+
               {error && <div className="au-error">{error}</div>}
               <div className="au-row">
                 <button type="button" className="au-btn ghost" onClick={() => { setError(""); setStep(1); }}>
@@ -370,6 +383,8 @@ export default function Auth({ mode }) {
 
               <Link to="/forgot" className="au-forgot">Forgotten password?</Link>
 
+              <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} />
+
               {error && <div className="au-error">{error}</div>}
               <button type="submit" className="au-btn" disabled={busy}>
                 {busy ? "Please wait..." : "Log in"}
@@ -381,7 +396,7 @@ export default function Auth({ mode }) {
                   : "Log in with your email instead"}
               </button>
 
-                 <GoogleButton onClick={handleGoogle} />
+              <GoogleButton onClick={handleGoogle} />
 
               <p className="au-switch">
                 New here? <Link to="/signup">Create account</Link>

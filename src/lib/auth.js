@@ -1,6 +1,10 @@
 import { supabase } from "./supabase.js";
 import { saveUser, setLoggedIn } from "../utils/storage.js";
 
+const isCaptchaError = (error) => (error?.message || "").toLowerCase().includes("captcha");
+const CAPTCHA_MESSAGE =
+  "The security check didn't pass. Wait a moment for it to finish, then try again.";
+
 // Turns the signed-in Supabase account into the user object the rest of the app already uses
 export async function syncUser() {
   const { data } = await supabase.auth.getSession();
@@ -39,12 +43,13 @@ export async function syncUser() {
   return user;
 }
 
-export async function signUpUser(form, uni) {
+export async function signUpUser(form, uni, captchaToken) {
   const email = form.email.trim().toLowerCase();
   const { data, error } = await supabase.auth.signUp({
     email,
     password: form.password,
     options: {
+      captchaToken,
       emailRedirectTo: `${window.location.origin}/feed`,
       data: {
         name: form.name.trim(),
@@ -64,6 +69,7 @@ export async function signUpUser(form, uni) {
 
   if (error) {
     const msg = (error.message || "").toLowerCase();
+    if (isCaptchaError(error)) return { error: CAPTCHA_MESSAGE };
     if (error.status === 429 || msg.includes("rate limit")) {
       return { error: "Too many attempts. Please wait a while and try again." };
     }
@@ -90,13 +96,15 @@ export async function signUpUser(form, uni) {
   return { user: data.user };
 }
 
-export async function signInUser(email, password) {
+export async function signInUser(email, password, captchaToken) {
   const { error } = await supabase.auth.signInWithPassword({
     email: email.trim().toLowerCase(),
     password,
+    options: { captchaToken },
   });
   if (error) {
     const msg = (error.message || "").toLowerCase();
+    if (isCaptchaError(error)) return { error: CAPTCHA_MESSAGE };
     if (msg.includes("not confirmed")) {
       return { error: "Please confirm your email first. Open the link we sent you." };
     }
@@ -107,7 +115,6 @@ export async function signInUser(email, password) {
   if (!user) return { error: "We couldn't load your profile. Please try again." };
   return { user };
 }
-
 
 // Sends the person to Google. They come back to /feed, already signed in.
 export async function signInWithGoogle() {

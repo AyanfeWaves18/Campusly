@@ -38,17 +38,22 @@ export async function saveProfileToCloud(changes) {
   return { ok: true };
 }
 
-
 // Changes the password. It checks the current password first by signing in again.
-export async function changeMyPassword(currentPassword, newPassword) {
+export async function changeMyPassword(currentPassword, newPassword, captchaToken) {
   const user = getUser();
   if (!user?.email) return { error: "You're not logged in." };
 
   const { error: checkError } = await supabase.auth.signInWithPassword({
     email: user.email,
     password: currentPassword,
+    options: { captchaToken },
   });
-  if (checkError) return { error: "Your current password is incorrect." };
+  if (checkError) {
+    if ((checkError.message || "").toLowerCase().includes("captcha")) {
+      return { error: "The security check didn't pass. Wait a moment for it to finish, then try again." };
+    }
+    return { error: "Your current password is incorrect." };
+  }
 
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) {
@@ -59,18 +64,4 @@ export async function changeMyPassword(currentPassword, newPassword) {
     return { error: "We couldn't change your password. Please try again." };
   }
   return { ok: true };
-}
-
-// Several people at once, for the Matches page
-export async function fetchPeopleByIds(ids) {
-  if (!ids?.length) return { people: [] };
-  const { data, error } = await supabase.from("profiles").select(FIELDS).in("id", ids);
-  if (error) return { error: "We couldn't load your matches. Please try again." };
-
-  const people = (data || []).map(shape);
-  const firstPhotos = people.map((p) => p.photos[0]).filter(Boolean);
-  const urls = firstPhotos.length ? await loadPhotoUrls(firstPhotos) : {};
-  return {
-    people: people.map((p) => ({ ...p, photoUrl: p.photos[0] ? urls[p.photos[0]] || null : null })),
-  };
 }
