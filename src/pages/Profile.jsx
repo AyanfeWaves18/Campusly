@@ -6,8 +6,9 @@ import CalendarSheet from "../components/CalendarSheet.jsx";
 import Lightbox from "../components/Lightbox.jsx";
 import { XIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
-import { getUser, load } from "../utils/storage.js";
-import { completeness, events, formatWhen } from "../utils/data.js";
+import { getUser } from "../utils/storage.js";
+import { completeness, formatWhen } from "../utils/data.js";
+import { fetchMyGoingEvents } from "../lib/events.js";
 import { departments, levels, interestsList, promptQuestions } from "../utils/options.js";
 import { saveProfileToCloud } from "../lib/profile.js";
 import { addPhoto, loadPhotoUrls, removePhoto as removePhotoFromCloud, MAX_PHOTOS } from "../lib/photos.js";
@@ -28,10 +29,10 @@ export default function Profile() {
   const paths = (user.photos || []).filter((p) => typeof p === "string" && !p.startsWith("data:"));
 
   const { pct, items } = completeness(user);
-  const going = load("going", []);
-  const myEvents = events
-    .filter((e) => going.includes(e.id) && e.start > Date.now())
-    .sort((a, b) => a.start - b.start);
+  const [myEvents, setMyEvents] = useState([]);
+  useEffect(() => {
+    fetchMyGoingEvents().then((res) => setMyEvents(res.events));
+  }, []);
 
   // The photo bucket is private, so ask for temporary viewing links
   useEffect(() => {

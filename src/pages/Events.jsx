@@ -1,64 +1,120 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import Avatar from "../components/Avatar.jsx";
 import CalendarSheet from "../components/CalendarSheet.jsx";
 import { useToast } from "../components/Toast.jsx";
-import { load, save } from "../utils/storage.js";
-import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
-import { events, formatWhen, profiles } from "../utils/data.js";
+import { getUser, load, save } from "../utils/storage.js";
+import { formatWhen } from "../utils/data.js";
 import { eventTypes } from "../utils/options.js";
 import { checkReminders } from "../utils/reminders.js";
+import { fetchEvents, fetchGoingIds, setGoing as saveGoing } from "../lib/events.js";
+import { fetchMyMatchIds } from "../lib/likes.js";
+import { fetchPeopleByIds } from "../lib/people.js";
+import { sendMessage } from "../lib/chat.js";
 import "../components/Modals.css";
 import "./Pages.css";
+
+const COLORS = [
+  ["#F4C0D1", "#72243E"],
+  ["#CECBF6", "#3C3489"],
+  ["#F5C4B3", "#712B13"],
+  ["#9FE1CB", "#085041"],
+  ["#FAC775", "#633806"],
+  ["#C0DD97", "#27500A"],
+  ["#B5D4F4", "#0C447C"],
+];
+const colorFor = (id) => COLORS[[...String(id)].reduce((n, c) => n + c.charCodeAt(0), 0) % COLORS.length];
 
 export default function Events() {
   const navigate = useNavigate();
   const toast = useToast();
+  const me = getUser() || {};
+
   const [type, setType] = useState("All");
-  const [going, setGoing] = useState(() => load("going", []));
-  const [inviting, setInviting] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [going, setGoing] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [sheet, setSheet] = useState(null);
+  const [inviting, setInviting] = useState(null);
+  const [matches, setMatches] = useState(null); // null = not loaded yet
+  const [busy, setBusy] = useState(null);
 
-  const likes = load("likes", []);
-  const blocked = load("blocked", []);
-  const matches = profiles.filter((p) => likes.includes(p.id) && p.likedYou && !blocked.includes(p.id));
-  const shown = events
-    .filter((e) => e.start > Date.now() && (type === "All" || e.type === type))
-    .sort((a, b) => a.start - b.start);
+  const load_ = useCallback(async () => {
+    const [e, g] = await Promise.all([fetchEvents(me.uni), fetchGoingIds()]);
+    if (e.error) {
+      setError(e.error);
+    } else {
+      setError("");
+      setEvents(e.events);
+    }
+    if (!g.error) setGoing(g.ids);
+    setLoading(false);
+  }, [me.uni]);
 
-  function toggleGoing(ev) {
-    if (going.includes(ev.id)) {
-      const next = going.filter((x) => x !== ev.id);
-      setGoing(next);
-      save("going", next);
+  useEffect(() => {
+    load_();
+  }, [load_]);
+
+  const shown = useMemo(
+    () => events.filter((e) => type === "All" || e.type === type),
+    [events, type]
+  );
+
+  async function toggleGoing(ev) {
+    if (busy) return;
+    const was = going.includes(ev.id);
+    setBusy(ev.id);
+    setGoing((g) => (was ? g.filter((x) => x !== ev.id) : [...g, ev.id]));
+    const res = await saveGoing(ev.id, !was);
+    setBusy(null);
+
+    if (res.error) {
+      setGoing((g) => (was ? [...g, ev.id] : g.filter((x) => x !== ev.id)));
+      toast(res.error, "err");
+      return;
+    }
+    if (was) {
       save("reminded", load("reminded", []).filter((x) => x !== ev.id));
       toast("Removed from your events");
       return;
     }
-    const next = [...going, ev.id];
-    setGoing(next);
-    save("going", next);
     setSheet({ ev, joined: true });
-    checkReminders(toast);
+    const ids = [...going, ev.id];
+    checkReminders(toast, events.filter((e) => ids.includes(e.id)));
   }
 
-  function openInvite(ev) {
-    if (matches.length === 0) {
+  async function openInvite(ev) {
+    let list = matches;
+    if (list === null) {
+      setBusy(`inv-${ev.id}`);
+      const m = await fetchMyMatchIds();
+      const p = m.error ? m : await fetchPeopleByIds(m.ids);
+      setBusy(null);
+      if (p.error) {
+        toast(p.error, "err");
+        return;
+      }
+      list = p.people || [];
+      setMatches(list);
+    }
+    if (list.length === 0) {
       toast("Match with someone first, then invite them", "err");
       return;
     }
     setInviting(ev);
   }
 
-  function invite(p) {
-    const chats = load("chats", {});
-    const msg = {
-      from: "me",
-      text: `Want to go to ${inviting.title} together? (${formatWhen(inviting.start)}, ${inviting.where})`,
-      t: Date.now(),
-    };
-    save("chats", { ...chats, [p.id]: [...(chats[p.id] || []), msg] });
+  async function invite(p) {
+    setBusy(`to-${p.id}`);
+    const text = `Want to go to ${inviting.title} together? (${formatWhen(inviting.start)}, ${inviting.where})`;
+    const res = await sendMessage(p.id, text);
+    setBusy(null);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
     toast(`Invite sent to ${p.name}`);
     setInviting(null);
     navigate(`/chat/${p.id}`);
@@ -76,33 +132,69 @@ export default function Events() {
           ))}
         </div>
 
-        {shown.length === 0 && (
+        {loading && (
+          <>
+            {[1, 2].map((n) => (
+              <div className="ev-card" key={n}>
+                <div className="sk sk-line w40"></div>
+                <div className="sk sk-line w60"></div>
+                <div className="sk sk-line w90"></div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {!loading && error && (
           <div className="empty">
-            <i className="ti ti-calendar-off"></i>
-            <h3>No events here yet</h3>
-            <p>Check back soon.</p>
+            <i className="ti ti-wifi-off"></i>
+            <h3>Couldn't load events</h3>
+            <p>{error}</p>
+            <a href="/events" onClick={(e) => { e.preventDefault(); setLoading(true); load_(); }}>Try again</a>
           </div>
         )}
 
-        {shown.map((ev) => (
-          <div className="ev-card" key={ev.id}>
-            <span className="ev-type">{ev.type}</span>
-            <h3>{ev.title}</h3>
-            <div className="ev-meta">{formatWhen(ev.start)} · {ev.where}</div>
-            <p>{ev.desc}</p>
-            <div className="ev-actions">
-              <button className={going.includes(ev.id) ? "on" : ""} onClick={() => toggleGoing(ev)}>
-                {going.includes(ev.id) ? "Going ✓" : "I'm going"}
-              </button>
-              <button onClick={() => openInvite(ev)}>Invite a match</button>
-            </div>
-            {going.includes(ev.id) && (
-              <button className="ev-cal" onClick={() => setSheet({ ev, joined: false })}>
-                Add to calendar and set alerts
-              </button>
-            )}
+        {!loading && !error && shown.length === 0 && (
+          <div className="empty">
+            <i className="ti ti-calendar-off"></i>
+            <h3>{events.length === 0 ? "No events yet" : "No events here"}</h3>
+            <p>
+              {events.length === 0
+                ? "New campus events will show up here. Check back soon."
+                : "Try another type."}
+            </p>
           </div>
-        ))}
+        )}
+
+        {!loading &&
+          !error &&
+          shown.map((ev) => {
+            const isGoing = going.includes(ev.id);
+            return (
+              <div className="ev-card" key={ev.id}>
+                <span className="ev-type">{ev.type}</span>
+                <h3>{ev.title}</h3>
+                <div className="ev-meta">{formatWhen(ev.start)} · {ev.where}</div>
+                {ev.desc && <p>{ev.desc}</p>}
+                <div className="ev-actions">
+                  <button
+                    className={isGoing ? "on" : ""}
+                    onClick={() => toggleGoing(ev)}
+                    disabled={busy === ev.id}
+                  >
+                    {isGoing ? "Going ✓" : "I'm going"}
+                  </button>
+                  <button onClick={() => openInvite(ev)} disabled={busy === `inv-${ev.id}`}>
+                    {busy === `inv-${ev.id}` ? "..." : "Invite a match"}
+                  </button>
+                </div>
+                {isGoing && (
+                  <button className="ev-cal" onClick={() => setSheet({ ev, joined: false })}>
+                    Add to calendar and set alerts
+                  </button>
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {sheet && <CalendarSheet ev={sheet.ev} justJoined={sheet.joined} onClose={() => setSheet(null)} />}
@@ -111,15 +203,18 @@ export default function Events() {
         <div className="md-overlay" onClick={() => setInviting(null)}>
           <div className="md-sheet" onClick={(e) => e.stopPropagation()}>
             <h2>Invite to {inviting.title}</h2>
-            {matches.map((p) => (
-              <button className="row" key={p.id} onClick={() => invite(p)}>
-                <Avatar name={p.name} bg={p.bg} fg={p.fg} />
-                <div className="row-main">
-                  <b>{p.name}</b>
-                  <span>{p.department}</span>
-                </div>
-              </button>
-            ))}
+            {matches.map((p) => {
+              const [bg, fg] = colorFor(p.id);
+              return (
+                <button className="row" key={p.id} onClick={() => invite(p)} disabled={busy === `to-${p.id}`}>
+                  <Avatar photo={p.photoUrl} name={p.name} bg={bg} fg={fg} />
+                  <div className="row-main">
+                    <b>{p.name}</b>
+                    <span>{p.department}</span>
+                  </div>
+                </button>
+              );
+            })}
             <button className="md-btn ghost" onClick={() => setInviting(null)}>Cancel</button>
           </div>
         </div>

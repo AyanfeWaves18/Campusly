@@ -7,6 +7,7 @@ import { checkReminders } from "../utils/reminders.js";
 import { currentTheme, getUser, isLoggedIn, toggleTheme } from "../utils/storage.js";
 import { supabase } from "../lib/supabase.js";
 import { syncUser } from "../lib/auth.js";
+import { fetchMyGoingEvents } from "../lib/events.js";
 import "./AppLayout.css";
 
 const tabs = [
@@ -49,11 +50,27 @@ export default function AppLayout({ children }) {
     if (needsWelcome) navigate("/welcome", { replace: true });
   }, [needsWelcome, navigate]);
 
+  // Day-before reminders for the events you are going to
   useEffect(() => {
     if (!ok || needsWelcome) return;
-    checkReminders(toast);
-    const t = setInterval(() => checkReminders(toast), 60000);
-    return () => clearInterval(t);
+    let list = [];
+    let stopped = false;
+
+    const refresh = async () => {
+      const res = await fetchMyGoingEvents();
+      if (stopped) return;
+      if (!res.error) list = res.events;
+      checkReminders(toast, list);
+    };
+
+    refresh();
+    const tick = setInterval(() => checkReminders(toast, list), 60000);
+    const reload = setInterval(refresh, 10 * 60000);
+    return () => {
+      stopped = true;
+      clearInterval(tick);
+      clearInterval(reload);
+    };
   }, [ok, needsWelcome, toast]);
 
   if (!ok || needsWelcome) return null;

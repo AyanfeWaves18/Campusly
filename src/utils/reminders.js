@@ -1,4 +1,4 @@
-import { events, formatWhen } from "./data.js";
+import { formatWhen } from "./data.js";
 import { load, save } from "./storage.js";
 
 const HOUR = 60 * 60 * 1000;
@@ -12,8 +12,8 @@ export function googleCalUrl(ev) {
     action: "TEMPLATE",
     text: ev.title,
     dates: `${stamp(ev.start)}/${stamp(ev.start + 2 * HOUR)}`,
-    details: ev.desc,
-    location: ev.where,
+    details: ev.desc || "",
+    location: ev.where || "",
   });
   return `https://calendar.google.com/calendar/render?${q.toString()}`;
 }
@@ -30,8 +30,8 @@ export function downloadIcs(ev) {
     `DTSTART:${stamp(ev.start)}`,
     `DTEND:${stamp(ev.start + 2 * HOUR)}`,
     `SUMMARY:${esc(ev.title)}`,
-    `LOCATION:${esc(ev.where)}`,
-    `DESCRIPTION:${esc(ev.desc)}`,
+    `LOCATION:${esc(ev.where || "")}`,
+    `DESCRIPTION:${esc(ev.desc || "")}`,
     "BEGIN:VALARM",
     "TRIGGER:-P1D",
     "ACTION:DISPLAY",
@@ -77,18 +77,17 @@ async function showNotification(title, body) {
   }
 }
 
-// Fires once per event, from 24 hours before it starts
-export function checkReminders(toast) {
-  const going = load("going", []);
+// Fires once per event, from 24 hours before it starts.
+// "events" is the list of upcoming events the person is going to.
+export function checkReminders(toast, events = []) {
   const reminded = load("reminded", []);
   const now = Date.now();
   let changed = false;
 
-  going.forEach((id) => {
-    const ev = events.find((e) => e.id === id);
-    if (!ev || reminded.includes(id)) return;
+  events.forEach((ev) => {
+    if (reminded.includes(ev.id)) return;
     if (now >= ev.start - DAY && now < ev.start) {
-      reminded.push(id);
+      reminded.push(ev.id);
       changed = true;
       const body = `${formatWhen(ev.start)} at ${ev.where}`;
       toast(`Reminder: ${ev.title} is coming up. ${body}`, "match", 8000);
