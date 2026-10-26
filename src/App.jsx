@@ -12,6 +12,7 @@ import Chat from "./pages/Chat.jsx";
 import Events from "./pages/Events.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
+import Admin from "./pages/Admin.jsx";
 import Info from "./pages/Info.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import NotFound from "./pages/NotFound.jsx";
@@ -49,6 +50,7 @@ export default function App() {
         <Route path="/events" element={<Events />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/safety" element={<Info />} />
         <Route path="/privacy" element={<Info />} />
         <Route path="/terms" element={<Info />} />
