@@ -9,6 +9,7 @@ import { useToast } from "../components/Toast.jsx";
 import { getUser } from "../utils/storage.js";
 import { completeness, formatWhen } from "../utils/data.js";
 import { fetchMyGoingEvents } from "../lib/events.js";
+import { fetchCompanions } from "../lib/invites.js";
 import { departments, levels, interestsList, promptQuestions } from "../utils/options.js";
 import { saveProfileToCloud } from "../lib/profile.js";
 import { addPhoto, loadPhotoUrls, removePhoto as removePhotoFromCloud, MAX_PHOTOS } from "../lib/photos.js";
@@ -30,8 +31,10 @@ export default function Profile() {
 
   const { pct, items } = completeness(user);
   const [myEvents, setMyEvents] = useState([]);
+  const [withNames, setWithNames] = useState({});
   useEffect(() => {
     fetchMyGoingEvents().then((res) => setMyEvents(res.events));
+    fetchCompanions().then((res) => setWithNames(res.map));
   }, []);
 
   // The photo bucket is private, so ask for temporary viewing links
@@ -246,6 +249,12 @@ export default function Profile() {
                   {ev.title}
                   <br />
                   <small style={{ color: "var(--muted)" }}>{formatWhen(ev.start)} · {ev.where}</small>
+                                    {withNames[ev.id] && (
+                    <>
+                      <br />
+                      <small style={{ color: "var(--pink)" }}>Going with {withNames[ev.id].join(", ")}</small>
+                    </>
+                  )}
                 </span>
                 <button className="in-btn ghost" style={{ padding: "6px 14px" }} onClick={() => setCalEvent(ev)}>
                   Calendar

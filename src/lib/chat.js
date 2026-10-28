@@ -36,7 +36,7 @@ export async function fetchMessages(partnerId) {
   if (!me) return { messages: [] };
   const { data, error } = await supabase
     .from("messages")
-    .select("id, sender_id, recipient_id, body, created_at, read_at, audio_path, audio_seconds")
+    .select("id, sender_id, recipient_id, body, created_at, read_at, audio_path, audio_seconds, invite_id")
     .or(
       `and(sender_id.eq.${me},recipient_id.eq.${partnerId}),and(sender_id.eq.${partnerId},recipient_id.eq.${me})`
     )

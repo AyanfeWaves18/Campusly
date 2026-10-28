@@ -439,3 +439,53 @@
   color: var(--muted);
   padding-left: 6px;
 }
+.inv {
+  min-width: 210px;
+}
+.inv-tag {
+  display: block;
+  opacity: 0.8;
+  font-size: 0.72rem;
+  margin-bottom: 4px;
+}
+.inv h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.inv-meta {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+.inv-note {
+  font-size: 0.85rem;
+}
+.inv-actions {
+  display: flex;
+  gap: 8px;
+}
+.inv-actions button {
+  flex: 1;
+  border-radius: 999px;
+  padding: 8px 12px;
+  border: none;
+  background: #fff;
+  color: var(--purple);
+  font-weight: 600;
+  cursor: pointer;
+}
+.inv-actions button.ghost {
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+}
+.ch-msg.them .inv-actions button {
+  background: var(--purple);
+  color: #fff;
+}
+.ch-msg.them .inv-actions button.ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}

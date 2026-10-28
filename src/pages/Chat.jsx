@@ -8,9 +8,11 @@ import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx
 import { MicIcon, RecorderBar, VoicePlayer, useRecorder } from "../components/VoiceBits.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { getUser, isLoggedIn } from "../utils/storage.js";
+import { formatWhen } from "../utils/data.js";
 import { fetchPerson } from "../lib/people.js";
 import { likePerson } from "../lib/likes.js";
 import { loadVoiceUrls, sendVoiceNote } from "../lib/voice.js";
+import { fetchInvitesWith, respondToInvite, subscribeToInvites } from "../lib/invites.js";
 import {
   fetchChatState,
   fetchMessages,
@@ -60,6 +62,45 @@ function Ticks({ seen }) {
   );
 }
 
+// An event invite shown inside the chat
+function InviteCard({ inv, meId, name, busy, onAnswer }) {
+  const iAmInviter = inv.inviterId === meId;
+  const past = inv.start && inv.start < Date.now();
+
+  let note = null;
+  let buttons = false;
+  if (inv.status === "accepted") {
+    note = iAmInviter ? `${name} accepted. It's on your profile.` : "You accepted. It's on your profile.";
+  } else if (inv.status === "declined") {
+    note = iAmInviter ? `${name} can't make it.` : "You said not now.";
+  } else if (past) {
+    note = "This event has already started.";
+  } else if (iAmInviter) {
+    note = `Waiting for ${name}...`;
+  } else {
+    buttons = true;
+  }
+
+  return (
+    <div className="inv">
+      <small className="inv-tag"><i className="ti ti-calendar-event"></i> Event invite</small>
+      <h4>{inv.title}</h4>
+      <div className="inv-meta">
+        {inv.start ? formatWhen(inv.start) : ""}
+        {inv.where ? ` · ${inv.where}` : ""}
+      </div>
+      {buttons ? (
+        <div className="inv-actions">
+          <button onClick={() => onAnswer(inv.id, true)} disabled={busy}>Accept</button>
+          <button className="ghost" onClick={() => onAnswer(inv.id, false)} disabled={busy}>Not now</button>
+        </div>
+      ) : (
+        <div className="inv-note">{note}</div>
+      )}
+    </div>
+  );
+}
+
 export default function Chat() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -71,6 +112,8 @@ export default function Chat() {
   const [status, setStatus] = useState("loading"); // loading | ok | missing
   const [chat, setChat] = useState({ state: "closed", remaining: null });
   const [messages, setMessages] = useState([]);
+  const [invites, setInvites] = useState({});
+  const [busyInvite, setBusyInvite] = useState(false);
   const [voiceUrls, setVoiceUrls] = useState({});
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -90,11 +133,17 @@ export default function Chat() {
     if (!res.error) setChat({ state: res.state, remaining: res.remaining });
   }, [id]);
 
+  const loadInvites = useCallback(async () => {
+    const res = await fetchInvitesWith(id);
+    if (!res.error) setInvites(res.invites);
+  }, [id]);
+
   // Pull down at the top of the messages to refresh
   async function refresh() {
-    const [m, s] = await Promise.all([fetchMessages(id), fetchChatState(id)]);
+    const [m, s, iv] = await Promise.all([fetchMessages(id), fetchChatState(id), fetchInvitesWith(id)]);
     if (!m.error) setMessages(m.messages);
     if (!s.error) setChat({ state: s.state, remaining: s.remaining });
+    if (!iv.error) setInvites(iv.invites);
     markRead(id);
     toast("Chat refreshed");
   }
@@ -108,7 +157,12 @@ export default function Chat() {
     }
     let cancelled = false;
     (async () => {
-      const [p, m, s] = await Promise.all([fetchPerson(id), fetchMessages(id), fetchChatState(id)]);
+      const [p, m, s, iv] = await Promise.all([
+        fetchPerson(id),
+        fetchMessages(id),
+        fetchChatState(id),
+        fetchInvitesWith(id),
+      ]);
       if (cancelled) return;
       if (p.error) {
         setStatus("missing");
@@ -117,6 +171,7 @@ export default function Chat() {
       setPerson(p.person);
       setMessages(m.messages || []);
       if (!s.error) setChat({ state: s.state, remaining: s.remaining });
+      if (!iv.error) setInvites(iv.invites);
       setStatus("ok");
       markRead(id);
     })();
@@ -125,19 +180,21 @@ export default function Chat() {
     };
   }, [id, navigate]);
 
-  // Live updates: new messages, "seen" ticks, and the typing / recording signs
+  // Live updates: new messages, "seen" ticks, invite answers, and the typing / recording signs
   useEffect(() => {
     if (status !== "ok") return;
 
     const stopMessages = subscribeToChat(id, (m) => {
       setMessages((list) => (list.some((x) => x.id === m.id) ? list : [...list, m]));
       setPeer(null);
+      if (m.invite_id) loadInvites();
       if (document.visibilityState === "visible") markRead(id);
       refreshState();
     });
     const stopReads = subscribeToReads(id, (row) => {
       setMessages((list) => list.map((x) => (x.id === row.id ? { ...x, read_at: row.read_at } : x)));
     });
+    const stopInvites = subscribeToInvites(() => loadInvites());
     const typingChannel = openTypingChannel(id, (kind) => {
       clearTimeout(typingTimer.current);
       setPeer(kind);
@@ -154,12 +211,13 @@ export default function Chat() {
     return () => {
       stopMessages();
       stopReads();
+      stopInvites();
       typingChannel.close();
       typingRef.current = null;
       clearTimeout(typingTimer.current);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [id, status, refreshState]);
+  }, [id, status, refreshState, loadInvites]);
 
   // While you record, keep telling the other person. When you stop, tell them that too.
   useEffect(() => {
@@ -188,7 +246,7 @@ export default function Chat() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, peer, sendingVoice]);
+  }, [messages, invites, peer, sendingVoice]);
 
   const canSend = chat.state === "matched" || chat.state === "open";
 
@@ -244,6 +302,25 @@ export default function Chat() {
     }
     setMessages((list) => (list.some((x) => x.id === res.message.id) ? list : [...list, res.message]));
     refreshState();
+  }
+
+  // Accept or decline an event invite
+  async function answerInvite(inviteId, accepted) {
+    if (busyInvite) return;
+    setBusyInvite(true);
+    const res = await respondToInvite(inviteId, accepted);
+    if (res.error) {
+      setBusyInvite(false);
+      toast(res.error, "err");
+      loadInvites();
+      return;
+    }
+    // Your answer is also posted in the chat, so reload what the chat shows
+    const [m, iv] = await Promise.all([fetchMessages(id), fetchInvitesWith(id)]);
+    setBusyInvite(false);
+    if (!m.error) setMessages(m.messages);
+    if (!iv.error) setInvites(iv.invites);
+    toast(accepted ? "You're going together! It's on your profile." : "Okay, we let them know.");
   }
 
   async function like() {
@@ -343,11 +420,22 @@ export default function Chat() {
 
         {messages.map((m) => {
           const isMine = m.sender_id === me?.id;
+          const inv = m.invite_id ? invites[m.invite_id] : null;
+          // The invite itself is a card. The answer ("Accepted: ...") is a normal message.
+          const isInviteCard = inv && m.sender_id === inv.inviterId;
           return (
             <div key={m.id} style={{ display: "contents" }}>
               <div className={`ch-msg ${isMine ? "me" : "them"}`}>
                 {m.audio_path ? (
                   <VoicePlayer url={voiceUrls[m.audio_path]} seconds={m.audio_seconds} />
+                ) : isInviteCard ? (
+                  <InviteCard
+                    inv={inv}
+                    meId={me?.id}
+                    name={name}
+                    busy={busyInvite}
+                    onAnswer={answerInvite}
+                  />
                 ) : (
                   m.body
                 )}

@@ -11,7 +11,7 @@ import { checkReminders } from "../utils/reminders.js";
 import { fetchEvents, fetchGoingIds, setGoing as saveGoing } from "../lib/events.js";
 import { fetchMyMatchIds } from "../lib/likes.js";
 import { fetchPeopleByIds } from "../lib/people.js";
-import { sendMessage } from "../lib/chat.js";
+import { sendEventInvite } from "../lib/invites.js";
 import "../components/Modals.css";
 import "./Pages.css";
 
@@ -106,10 +106,9 @@ export default function Events() {
     setInviting(ev);
   }
 
-  async function invite(p) {
+    async function invite(p) {
     setBusy(`to-${p.id}`);
-    const text = `Want to go to ${inviting.title} together? (${formatWhen(inviting.start)}, ${inviting.where})`;
-    const res = await sendMessage(p.id, text);
+    const res = await sendEventInvite(inviting.id, p.id);
     setBusy(null);
     if (res.error) {
       toast(res.error, "err");
