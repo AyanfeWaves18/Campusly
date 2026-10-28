@@ -158,3 +158,32 @@ export async function passPerson(id) {
   if (error) return { error: "We couldn't do that. Please try again." };
   return { ok: true };
 }
+
+// People who sent you messages you haven't opened: { partner_id, unread }
+export async function fetchUnread() {
+  const { data, error } = await supabase.rpc("my_unread");
+  if (error) return { error: "We couldn't load unread messages.", rows: [] };
+  return { rows: data || [] };
+}
+
+// Calls onChange when a message arrives for you, or when messages are marked as read
+export function subscribeToUnread(onChange) {
+  const me = getUser()?.id;
+  if (!me) return () => {};
+  const channel = supabase
+    .channel(`unread-${me}-${Date.now()}`)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${me}` },
+      () => onChange()
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${me}` },
+      () => onChange()
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

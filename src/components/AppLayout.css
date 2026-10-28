@@ -106,3 +106,38 @@
 [data-theme="light"] .bn a.on {
   color: var(--pink);
 }
+.tab-badge {
+  background: var(--pink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 6px;
+  margin-left: 6px;
+}
+.bn a {
+  position: relative;
+}
+.bn .tab-badge {
+  position: absolute;
+  top: 2px;
+  left: calc(50% + 6px);
+  margin-left: 0;
+  min-width: 18px;
+  text-align: center;
+}
+.unread-pill {
+  background: var(--pink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  margin-left: 8px;
+  vertical-align: 1px;
+}
+.row.has-unread .row-main span {
+  color: var(--text);
+  font-weight: 500;
+}

@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import Footer from "./Footer.jsx";
 import Logo from "./Logo.jsx";
 import { useToast } from "./Toast.jsx";
+import { UnreadProvider, useUnread } from "./Unread.jsx";
 import { checkReminders } from "../utils/reminders.js";
 import { currentTheme, getUser, isLoggedIn, toggleTheme } from "../utils/storage.js";
 import { supabase } from "../lib/supabase.js";
@@ -14,9 +15,20 @@ const tabs = [
   { to: "/feed", icon: "ti-flame", label: "Feed" },
   { to: "/events", icon: "ti-calendar-event", label: "Events" },
   { to: "/matches", icon: "ti-heart", label: "Matches" },
-  { to: "/messages", icon: "ti-message", label: "Messages" },
+  { to: "/messages", icon: "ti-message", label: "Messages", badge: true },
   { to: "/profile", icon: "ti-user", label: "Profile" },
 ];
+
+// The number of chats with something you haven't read yet
+function MessagesBadge() {
+  const { chats } = useUnread();
+  if (!chats) return null;
+  return (
+    <span className="tab-badge" aria-label={`${chats} unread chats`}>
+      {chats > 9 ? "9+" : chats}
+    </span>
+  );
+}
 
 export default function AppLayout({ children }) {
   const navigate = useNavigate();
@@ -76,38 +88,42 @@ export default function AppLayout({ children }) {
   if (!ok || needsWelcome) return null;
 
   return (
-    <div className="al">
-      <header className="al-top">
-        <Link to="/feed" className="al-logo"><Logo /></Link>
-        <span className="al-uni">{user.uni}</span>
+    <UnreadProvider>
+      <div className="al">
+        <header className="al-top">
+          <Link to="/feed" className="al-logo"><Logo /></Link>
+          <span className="al-uni">{user.uni}</span>
 
-        <nav className="al-tabs">
+          <nav className="al-tabs">
+            {tabs.map((t) => (
+              <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "")}>
+                {t.label}
+                {t.badge && <MessagesBadge />}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="al-icons">
+            <button onClick={() => setTheme(toggleTheme())} aria-label="Switch light or dark mode">
+              <i className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}></i>
+            </button>
+            <Link to="/settings" aria-label="Account settings"><i className="ti ti-settings"></i></Link>
+          </div>
+        </header>
+
+        <main className="al-main">{children}</main>
+        <Footer />
+
+        <nav className="bn">
           {tabs.map((t) => (
             <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "")}>
+              <i className={`ti ${t.icon}`}></i>
               {t.label}
+              {t.badge && <MessagesBadge />}
             </NavLink>
           ))}
         </nav>
-
-        <div className="al-icons">
-          <button onClick={() => setTheme(toggleTheme())} aria-label="Switch light or dark mode">
-            <i className={`ti ${theme === "dark" ? "ti-sun" : "ti-moon"}`}></i>
-          </button>
-          <Link to="/settings" aria-label="Account settings"><i className="ti ti-settings"></i></Link>
-        </div>
-      </header>
-
-      <main className="al-main">{children}</main>
-      <Footer />
-
-      <nav className="bn">
-        {tabs.map((t) => (
-          <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "")}>
-            <i className={`ti ${t.icon}`}></i>
-            {t.label}
-          </NavLink>
-        ))}
-      </nav>
-    </div>
+      </div>
+    </UnreadProvider>
   );
 }
