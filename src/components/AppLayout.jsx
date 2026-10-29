@@ -14,18 +14,19 @@ import "./AppLayout.css";
 const tabs = [
   { to: "/feed", icon: "ti-flame", label: "Feed" },
   { to: "/events", icon: "ti-calendar-event", label: "Events" },
-  { to: "/matches", icon: "ti-heart", label: "Matches" },
-  { to: "/messages", icon: "ti-message", label: "Messages", badge: true },
+  { to: "/matches", icon: "ti-heart", label: "Matches", badge: "likes" },
+  { to: "/messages", icon: "ti-message", label: "Messages", badge: "chats" },
   { to: "/profile", icon: "ti-user", label: "Profile" },
 ];
 
-// The number of chats with something you haven't read yet
-function MessagesBadge() {
-  const { chats } = useUnread();
-  if (!chats) return null;
+// Messages: chats with something unread. Matches: people who liked you that you haven't liked back.
+function TabBadge({ kind }) {
+  const { chats, likedCount } = useUnread();
+  const n = kind === "chats" ? chats : likedCount;
+  if (!n) return null;
   return (
-    <span className="tab-badge" aria-label={`${chats} unread chats`}>
-      {chats > 9 ? "9+" : chats}
+    <span className="tab-badge" aria-label={kind === "chats" ? `${n} unread chats` : `${n} new likes`}>
+      {n > 9 ? "9+" : n}
     </span>
   );
 }
@@ -98,7 +99,7 @@ export default function AppLayout({ children }) {
             {tabs.map((t) => (
               <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "")}>
                 {t.label}
-                {t.badge && <MessagesBadge />}
+                {t.badge && <TabBadge kind={t.badge} />}
               </NavLink>
             ))}
           </nav>
@@ -119,7 +120,7 @@ export default function AppLayout({ children }) {
             <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? "on" : "")}>
               <i className={`ti ${t.icon}`}></i>
               {t.label}
-              {t.badge && <MessagesBadge />}
+              {t.badge && <TabBadge kind={t.badge} />}
             </NavLink>
           ))}
         </nav>

@@ -28,3 +28,10 @@ export async function fetchMyMatchIds() {
   if (error) return { error: "We couldn't load your matches.", ids: [] };
   return { ids: (data || []).map(toId) };
 }
+
+// People who liked you and are waiting for your answer: { person_id, liked_at, msg_count, last_msg }
+export async function fetchLikedMe() {
+  const { data, error } = await supabase.rpc("liked_me");
+  if (error) return { error: "We couldn't load the people who liked you.", rows: [] };
+  return { rows: data || [] };
+}

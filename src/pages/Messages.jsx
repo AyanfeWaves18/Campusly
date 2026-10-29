@@ -152,7 +152,7 @@ function MessagesBody() {
           <div className="empty">
             <i className="ti ti-message-off"></i>
             <h3>No chats yet</h3>
-            <p>Like someone on the feed, then send them a message. Anyone who likes you appears under Requests.</p>
+            <p>Like someone on the feed, then send them a message. Anyone who writes to you first appears under Requests.</p>
             <Link to="/feed">Go to the feed</Link>
           </div>
         ) : (
@@ -189,7 +189,7 @@ function MessagesBody() {
           <div className="empty">
             <i className="ti ti-mail-opened"></i>
             <h3>No requests</h3>
-            <p>When someone likes you, they appear here. People you've liked who haven't answered show up here too.</p>
+            <p>When someone writes to you before you've liked each other, their message shows up here. People who only liked you are under Matches.</p>
             <Link to="/feed">Go to the feed</Link>
           </div>
         ) : (
