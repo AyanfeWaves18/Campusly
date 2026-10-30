@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "./Toast.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { complimentPresets, reportReasons } from "../utils/options.js";
 import { blockPerson, reportPerson } from "../lib/blocks.js";
+import { complimentsLeft, sendCompliment } from "../lib/compliments.js";
 import "./Modals.css";
 
 function Sheet({ onClose, title, children }) {
@@ -118,25 +119,31 @@ export function ReportModal({ profile, onClose, onDone }) {
   );
 }
 
-/* Anonymous compliment (preset messages only) */
+/* Anonymous compliment (ready-made messages only, saved in the cloud) */
 export function ComplimentModal({ profile, onClose }) {
   const toast = useToast();
   const me = getUser() || {};
-  const [pick, setPick] = useState("");
+  const [pick, setPick] = useState(0); // 1 to 4
+  const [left, setLeft] = useState(null);
+  const [busy, setBusy] = useState(false);
   const texts = complimentPresets.map((t) => t.replace("{dept}", me.department || "your campus"));
 
-  function send() {
+  useEffect(() => {
+    complimentsLeft().then(setLeft);
+  }, []);
+
+  async function send() {
     if (!pick) {
       toast("Pick a message", "err");
       return;
     }
-    const sent = load("compliments_sent", []);
-    const today = new Date().toDateString();
-    if (sent.filter((s) => new Date(s.t).toDateString() === today).length >= 3) {
-      toast("You can send 3 compliments a day", "err");
+    setBusy(true);
+    const res = await sendCompliment(profile.id, pick);
+    setBusy(false);
+    if (res.error) {
+      toast(res.error, "err");
       return;
     }
-    save("compliments_sent", [...sent, { to: profile.id, text: pick, t: Date.now() }]);
     toast("Compliment sent anonymously");
     onClose();
   }
@@ -144,20 +151,28 @@ export function ComplimentModal({ profile, onClose }) {
   return (
     <Sheet onClose={onClose} title={`Compliment ${profile.name}`}>
       <p className="md-text">
-        It's anonymous and uses ready-made messages only. Abuse can be reported, and senders can be
-        removed.
+        {profile.name} won't know it was you. It uses ready-made messages only, and abuse can be
+        reported.
+        {left !== null && (
+          <>
+            {" "}
+            <b>{left > 0 ? `You can send ${left} more today.` : "You've used all 3 for today."}</b>
+          </>
+        )}
       </p>
       <div className="md-reasons">
-        {texts.map((t) => (
-          <label key={t} className={pick === t ? "on" : ""}>
-            <input type="radio" name="comp" checked={pick === t} onChange={() => setPick(t)} />
+        {texts.map((t, i) => (
+          <label key={t} className={pick === i + 1 ? "on" : ""}>
+            <input type="radio" name="comp" checked={pick === i + 1} onChange={() => setPick(i + 1)} />
             {t}
           </label>
         ))}
       </div>
       <div className="md-row">
-        <button className="md-btn ghost" onClick={onClose}>Cancel</button>
-        <button className="md-btn" onClick={send}>Send</button>
+        <button className="md-btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
+        <button className="md-btn" onClick={send} disabled={busy || left === 0}>
+          {busy ? "Sending..." : "Send"}
+        </button>
       </div>
     </Sheet>
   );
