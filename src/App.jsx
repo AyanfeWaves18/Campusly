@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import LandingPage from "./pages/LandingPage.jsx";
 import Auth from "./pages/Auth.jsx";
@@ -8,7 +8,7 @@ import Feed from "./pages/Feed.jsx";
 import UserProfile from "./pages/UserProfile.jsx";
 import Matches from "./pages/Matches.jsx";
 import Messages from "./pages/Messages.jsx";
-import Chat from "./pages/Chat.jsx";
+import Chat from "./pages/chat.jsx";
 import Events from "./pages/Events.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound.jsx";
 import { CookieNotice } from "./components/Modals.jsx";
 import Protect from "./components/Protect.jsx";
 import AuthSync from "./components/AuthSync.jsx";
+import GlobalRefresh from "./components/GlobalRefresh.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -29,12 +30,16 @@ function ScrollToTop() {
 }
 
 export default function App() {
+  // Changing this number starts the current page fresh, so it loads its data again
+  const [reloadKey, setReloadKey] = useState(0);
+
   return (
     <>
       <Protect />
       <AuthSync />
       <ScrollToTop />
-      <Routes>
+      <GlobalRefresh onReload={() => setReloadKey((k) => k + 1)} />
+      <Routes key={reloadKey}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/signup" element={<Auth key="signup" mode="signup" />} />
         <Route path="/login" element={<Auth key="login" mode="login" />} />

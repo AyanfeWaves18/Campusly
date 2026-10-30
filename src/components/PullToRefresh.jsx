@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import "./PullToRefresh.css";
 
-// Pass a ref to a scrolling element, or nothing to use the whole page
-export function usePullToRefresh(onRefresh, elRef) {
+// Pass a ref to a scrolling element, or nothing to use the whole page.
+// Set enabled to false to switch it off.
+export function usePullToRefresh(onRefresh, elRef, enabled = true) {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const startY = useRef(null);
@@ -12,6 +13,7 @@ export function usePullToRefresh(onRefresh, elRef) {
   cb.current = onRefresh;
 
   useEffect(() => {
+    if (!enabled) return;
     const target = elRef?.current || window;
     const atTop = () => (elRef?.current ? elRef.current.scrollTop <= 0 : window.scrollY <= 0);
 
@@ -55,8 +57,11 @@ export function usePullToRefresh(onRefresh, elRef) {
       target.removeEventListener("touchmove", onMove);
       target.removeEventListener("touchend", onEnd);
       target.removeEventListener("touchcancel", onEnd);
+      startY.current = null;
+      pullRef.current = 0;
+      setPull(0);
     };
-  }, [elRef]);
+  }, [elRef, enabled]);
 
   return { pull, refreshing };
 }
