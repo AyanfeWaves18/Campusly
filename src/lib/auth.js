@@ -1,6 +1,9 @@
 import { supabase } from "./supabase.js";
 import { saveUser, setLoggedIn } from "../utils/storage.js";
 
+// Bump this when the Terms or Privacy Policy change in a way people must accept again
+export const TERMS_VERSION = "v1";
+
 const isCaptchaError = (error) => (error?.message || "").toLowerCase().includes("captcha");
 const CAPTCHA_MESSAGE =
   "The security check didn't pass. Wait a moment for it to finish, then try again.";
@@ -34,6 +37,7 @@ export async function syncUser() {
     prompts: p.prompts,
     photos: p.photos,
     verified: !!session.user.email_confirmed_at,
+    adult: !!p.adult_confirmed_at,
     privacy: { hideAll: p.hide_all, hideDept: p.hide_dept },
     email: session.user.email,
     phone: privateRes.data?.phone || "",
@@ -63,6 +67,8 @@ export async function signUpUser(form, uni, captchaToken) {
         dept_prefs: form.deptPrefs,
         interests: form.interests,
         bio: form.bio,
+        adult: true,
+        terms: TERMS_VERSION,
       },
     },
   });
@@ -143,6 +149,7 @@ export async function completeMyProfile(f) {
     p_dept_prefs: f.deptPrefs,
     p_interests: f.interests,
     p_bio: f.bio || null,
+    p_adult: !!f.adult,
   });
 
   if (error) {
@@ -150,12 +157,23 @@ export async function completeMyProfile(f) {
     if (error.code === "23505") {
       return { error: "An account with this phone number already exists.", field: "phone" };
     }
+    if (msg === "adult required") {
+      return { error: "Please confirm you're 18 or older to continue." };
+    }
     if (msg === "invalid phone") return { error: "Enter a valid phone number.", field: "phone" };
     if (msg === "invalid campus") return { error: "Choose your university." };
     if (msg !== "already complete") {
       return { error: "We couldn't save your profile. Please try again." };
     }
   }
+  const user = await syncUser();
+  return user ? { user } : { error: "We couldn't load your profile. Please try again." };
+}
+
+// Existing accounts confirm once
+export async function confirmAdult() {
+  const { error } = await supabase.rpc("confirm_adult", { terms_v: TERMS_VERSION });
+  if (error) return { error: "We couldn't save that. Please try again." };
   const user = await syncUser();
   return user ? { user } : { error: "We couldn't load your profile. Please try again." };
 }

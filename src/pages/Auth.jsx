@@ -87,6 +87,7 @@ export default function Auth({ mode }) {
   const [busy, setBusy] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaReset, setCaptchaReset] = useState(0);
+  const [agree, setAgree] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -185,6 +186,10 @@ export default function Auth({ mode }) {
     }
     if (form.interests.length === 0) {
       setError("Pick at least one interest.");
+      return;
+    }
+    if (!agree) {
+      setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
       return;
     }
     setBusy(true);
@@ -343,7 +348,18 @@ export default function Auth({ mode }) {
                 value={form.bio}
                 onChange={update}
               />
-
+              <label className="au-agree">
+                <input
+                  type="checkbox"
+                  checked={agree}
+                  onChange={(e) => { setAgree(e.target.checked); setError(""); }}
+                />
+                <span>
+                  I'm 18 or older, and I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+                </span>
+              </label>
               <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} />
 
               {error && <div className="au-error">{error}</div>}

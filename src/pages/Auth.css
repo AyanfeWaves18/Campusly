@@ -236,3 +236,23 @@
   cursor: pointer;
   font-size: 0.95rem;
 }
+
+.au-card .au-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 16px;
+  font-size: 0.9rem;
+  color: var(--soft);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.au-card .au-agree input {
+  width: auto;
+  margin: 3px 0 0;
+  flex-shrink: 0;
+}
+.au-agree a {
+  color: var(--pink);
+  text-decoration: underline;
+}

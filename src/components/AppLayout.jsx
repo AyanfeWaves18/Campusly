@@ -40,6 +40,8 @@ export default function AppLayout({ children }) {
   const ok = isLoggedIn() && user;
   // A new Google account has no department yet, so it must finish its profile first
   const needsWelcome = !!ok && !user.department;
+  // Everyone confirms once that they are 18 or older
+  const needsConfirm = !!ok && !needsWelcome && !user.adult;
 
   // If we aren't logged in yet, ask Supabase first. It may be about to restore a session,
   // for example right after coming back from Google or from the confirmation email.
@@ -61,11 +63,12 @@ export default function AppLayout({ children }) {
 
   useEffect(() => {
     if (needsWelcome) navigate("/welcome", { replace: true });
-  }, [needsWelcome, navigate]);
+    else if (needsConfirm) navigate("/confirm", { replace: true });
+  }, [needsWelcome, needsConfirm, navigate]);
 
   // Day-before reminders for the events you are going to
   useEffect(() => {
-    if (!ok || needsWelcome) return;
+    if (!ok || needsWelcome || needsConfirm) return;
     let list = [];
     let stopped = false;
 
@@ -84,9 +87,9 @@ export default function AppLayout({ children }) {
       clearInterval(tick);
       clearInterval(reload);
     };
-  }, [ok, needsWelcome, toast]);
+  }, [ok, needsWelcome, needsConfirm, toast]);
 
-  if (!ok || needsWelcome) return null;
+  if (!ok || needsWelcome || needsConfirm) return null;
 
   return (
     <UnreadProvider>

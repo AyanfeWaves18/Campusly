@@ -34,6 +34,7 @@ export default function Onboarding() {
 
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [agree, setAgree] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     name: "",
@@ -105,10 +106,11 @@ export default function Onboarding() {
       return setError("Fill in your gender, department, level, and what you're looking for.");
     }
     if (form.interests.length === 0) return setError("Pick at least one interest.");
+    if (!agree) return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
 
     setBusy(true);
     setError("");
-    const res = await completeMyProfile(form);
+    const res = await completeMyProfile({ ...form, adult: agree });
     setBusy(false);
     if (res.error) {
       setError(res.error);
@@ -212,7 +214,18 @@ export default function Onboarding() {
               value={form.bio}
               onChange={update}
             />
-
+            <label className="au-agree">
+              <input
+                type="checkbox"
+                checked={agree}
+                onChange={(e) => { setAgree(e.target.checked); setError(""); }}
+              />
+              <span>
+                I'm 18 or older, and I agree to the{" "}
+                <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{" "}
+                <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+              </span>
+            </label>
             {error && <div className="au-error">{error}</div>}
             <button type="submit" className="au-btn" disabled={busy}>
               {busy ? "Saving..." : "Finish"}

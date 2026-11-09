@@ -4,6 +4,7 @@ import LandingPage from "./pages/LandingPage.jsx";
 import Auth from "./pages/Auth.jsx";
 import Verify from "./pages/Verify.jsx";
 import Onboarding from "./pages/Onboarding.jsx";
+import AgeGate from "./pages/AgeGate.jsx";
 import Feed from "./pages/Feed.jsx";
 import UserProfile from "./pages/UserProfile.jsx";
 import Matches from "./pages/Matches.jsx";
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="/reset" element={<ResetPassword />} />
         <Route path="/verify" element={<Verify />} />
         <Route path="/welcome" element={<Onboarding />} />
+                <Route path="/confirm" element={<AgeGate />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/user/:id" element={<UserProfile />} />
         <Route path="/matches" element={<Matches />} />
