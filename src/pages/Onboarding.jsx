@@ -5,7 +5,7 @@ import Logo from "../components/Logo.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { supabase } from "../lib/supabase.js";
 import { completeMyProfile, syncUser } from "../lib/auth.js";
-import { load, setLoggedIn } from "../utils/storage.js";
+import { load, save, setLoggedIn } from "../utils/storage.js";
 import {
   departments,
   levels,
@@ -32,10 +32,13 @@ export default function Onboarding() {
   const toast = useToast();
   const saved = load("uni", "");
 
+  // True when the person already ticked the 18+ box on the Create account page
+  const alreadyConfirmed = load("adult_pending", false) === true;
+
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [agree, setAgree] = useState(false);
   const [error, setError] = useState("");
+  const [agree, setAgree] = useState(alreadyConfirmed);
   const [form, setForm] = useState({
     name: "",
     uni: CAMPUSES.includes(saved) ? saved : "",
@@ -106,7 +109,9 @@ export default function Onboarding() {
       return setError("Fill in your gender, department, level, and what you're looking for.");
     }
     if (form.interests.length === 0) return setError("Pick at least one interest.");
-    if (!agree) return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
+    if (!agree) {
+      return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
+    }
 
     setBusy(true);
     setError("");
@@ -116,6 +121,7 @@ export default function Onboarding() {
       setError(res.error);
       return;
     }
+    save("adult_pending", false);
     toast("Welcome to Campusly!");
     navigate("/feed", { replace: true });
   }
@@ -123,6 +129,7 @@ export default function Onboarding() {
   async function useAnotherAccount() {
     await supabase.auth.signOut();
     setLoggedIn(false);
+    save("adult_pending", false);
     navigate("/login", { replace: true });
   }
 
@@ -214,18 +221,23 @@ export default function Onboarding() {
               value={form.bio}
               onChange={update}
             />
-            <label className="au-agree">
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => { setAgree(e.target.checked); setError(""); }}
-              />
-              <span>
-                I'm 18 or older, and I agree to the{" "}
-                <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{" "}
-                <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
-              </span>
-            </label>
+
+            {/* Only shown if they didn't tick it on the Create account page */}
+            {!alreadyConfirmed && (
+              <label className="au-agree">
+                <input
+                  type="checkbox"
+                  checked={agree}
+                  onChange={(e) => { setAgree(e.target.checked); setError(""); }}
+                />
+                <span>
+                  I'm 18 or older, and I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+                </span>
+              </label>
+            )}
+
             {error && <div className="au-error">{error}</div>}
             <button type="submit" className="au-btn" disabled={busy}>
               {busy ? "Saving..." : "Finish"}

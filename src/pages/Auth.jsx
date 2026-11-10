@@ -4,7 +4,7 @@ import Captcha from "../components/Captcha.jsx";
 import Footer from "../components/Footer.jsx";
 import ForgotForm from "../components/ForgotForm.jsx";
 import Logo from "../components/Logo.jsx";
-import { getUser, load } from "../utils/storage.js";
+import { getUser, load, save } from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { signInUser, signInWithGoogle, signUpUser } from "../lib/auth.js";
 import {
@@ -143,8 +143,17 @@ export default function Auth({ mode }) {
 
   const comingSoon = (what) => setError(`${what} is being connected to the real database. Coming in the next step.`);
 
+  const AGE_ERROR = "Please confirm you're 18 or older and accept the Terms and Privacy Policy.";
+
   async function handleGoogle() {
     setError("");
+    // Creating an account with Google needs the same confirmation as the email form
+    if (mode === "signup" && !agree) {
+      setError(AGE_ERROR);
+      return;
+    }
+    // Remember it: the Google sign-up finishes on another screen after Google sends you back
+    save("adult_pending", mode === "signup");
     setBusy(true);
     const res = await signInWithGoogle();
     if (res?.error) {
@@ -174,6 +183,10 @@ export default function Auth({ mode }) {
       setError(pwError);
       return;
     }
+    if (!agree) {
+      setError(AGE_ERROR);
+      return;
+    }
     setError("");
     setStep(2);
   }
@@ -186,10 +199,6 @@ export default function Auth({ mode }) {
     }
     if (form.interests.length === 0) {
       setError("Pick at least one interest.");
-      return;
-    }
-    if (!agree) {
-      setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
       return;
     }
     setBusy(true);
@@ -275,6 +284,19 @@ export default function Auth({ mode }) {
               />
               <PwRules pw={form.password} />
 
+              <label className="au-agree">
+                <input
+                  type="checkbox"
+                  checked={agree}
+                  onChange={(e) => { setAgree(e.target.checked); setError(""); }}
+                />
+                <span>
+                  I'm 18 or older, and I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
+                </span>
+              </label>
+
               {error && <div className="au-error">{error}</div>}
               <button type="submit" className="au-btn">Continue</button>
 
@@ -348,18 +370,7 @@ export default function Auth({ mode }) {
                 value={form.bio}
                 onChange={update}
               />
-              <label className="au-agree">
-                <input
-                  type="checkbox"
-                  checked={agree}
-                  onChange={(e) => { setAgree(e.target.checked); setError(""); }}
-                />
-                <span>
-                  I'm 18 or older, and I agree to the{" "}
-                  <a href="/terms" target="_blank" rel="noreferrer">Terms</a> and{" "}
-                  <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>.
-                </span>
-              </label>
+
               <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} />
 
               {error && <div className="au-error">{error}</div>}
