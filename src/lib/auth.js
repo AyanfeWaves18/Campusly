@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import { saveUser, setLoggedIn } from "../utils/storage.js";
+import { SUPPORT_EMAIL } from "../utils/legal.js";
 
 // Bump this when the Terms or Privacy Policy change in a way people must accept again
 export const TERMS_VERSION = "v1";
@@ -20,7 +21,14 @@ export async function syncUser() {
     supabase.from("private_info").select("phone").eq("id", uid).maybeSingle(),
   ]);
   const p = profileRes.data;
-  if (!p) return null;
+    if (!p) return null;
+  // A suspended account is signed out and sent to the suspended page
+  if (p.suspended_at) {
+    await supabase.auth.signOut();
+    setLoggedIn(false);
+    window.location.assign("/suspended");
+    return null;
+  }
 
   const user = {
     id: uid,
@@ -112,6 +120,9 @@ export async function signInUser(email, password, captchaToken) {
   if (error) {
     const msg = (error.message || "").toLowerCase();
     if (isCaptchaError(error)) return { error: CAPTCHA_MESSAGE };
+        if (msg.includes("banned")) {
+      return { error: `This account has been suspended. If you think this is a mistake, write to ${SUPPORT_EMAIL}.` };
+    }
     if (msg.includes("not confirmed")) {
       return { error: "Please confirm your email first. Open the link we sent you." };
     }

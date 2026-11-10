@@ -1,6 +1,13 @@
 import { supabase } from "./supabase.js";
 import { shapeEvent } from "./events.js";
 
+const ERRORS = {
+  "cannot suspend an admin": "You can't suspend an admin.",
+  "not found": "That person no longer exists.",
+  "not allowed": "You don't have access to that.",
+};
+const friendly = (e, fallback) => ERRORS[(e?.message || "").trim()] || fallback;
+
 // The database decides who is an admin. Hiding a page is never what keeps this safe.
 export async function checkAdmin() {
   const { data, error } = await supabase.rpc("is_admin");
@@ -67,4 +74,65 @@ export async function removeEvent(id) {
   const { error } = await supabase.from("events").delete().eq("id", id);
   if (error) return { error: "We couldn't delete that event." };
   return { ok: true };
+}
+
+/* ---------- People ---------- */
+
+// A profile with its photos, even when the person has hidden it
+export async function adminGetProfile(id) {
+  const { data, error } = await supabase.rpc("admin_get_profile", { target: id });
+  if (error) return { error: friendly(error, "We couldn't open that profile.") };
+
+  const paths = Array.isArray(data.photos) ? data.photos : [];
+  let photos = [];
+  if (paths.length) {
+    const { data: signed } = await supabase.storage.from("photos").createSignedUrls(paths, 3600);
+    photos = paths.map((path) => ({
+      path,
+      url: (signed || []).find((s) => s.path === path)?.signedUrl || "",
+    }));
+  }
+  return { profile: data, photos };
+}
+
+export async function adminFindPeople(q) {
+  const { data, error } = await supabase.rpc("admin_find_people", { q });
+  if (error) return { error: "We couldn't search.", rows: [] };
+  return { rows: data || [] };
+}
+
+export async function adminSetSuspended(id, doSuspend, why) {
+  const { error } = await supabase.rpc("admin_set_suspended", {
+    target: id,
+    do_suspend: doSuspend,
+    why: why || null,
+  });
+  if (error) return { error: friendly(error, "We couldn't do that. Please try again.") };
+  return { ok: true };
+}
+
+// Removes the photo from their profile, then deletes the file itself
+export async function adminRemovePhoto(id, path) {
+  const { error } = await supabase.rpc("admin_remove_photo", { target: id, photo_path: path });
+  if (error) return { error: friendly(error, "We couldn't remove that photo.") };
+  await supabase.storage.from("photos").remove([path]);
+  return { ok: true };
+}
+
+// Listening links for voice notes in a report: { path: link }
+export async function adminVoiceUrls(paths) {
+  const list = [...new Set((paths || []).filter(Boolean))];
+  if (!list.length) return {};
+  const { data } = await supabase.storage.from("voice").createSignedUrls(list, 3600);
+  const out = {};
+  (data || []).forEach((s) => {
+    if (s.signedUrl) out[s.path] = s.signedUrl;
+  });
+  return out;
+}
+
+export async function fetchAdminLog() {
+  const { data, error } = await supabase.rpc("admin_log");
+  if (error) return { error: "We couldn't load the activity.", rows: [] };
+  return { rows: data || [] };
 }

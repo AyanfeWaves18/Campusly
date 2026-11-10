@@ -6,14 +6,21 @@ import { getUser } from "../utils/storage.js";
 import { formatWhen } from "../utils/data.js";
 import { eventTypes } from "../utils/options.js";
 import {
+  adminFindPeople,
+  adminGetProfile,
+  adminRemovePhoto,
+  adminSetSuspended,
+  adminVoiceUrls,
   checkAdmin,
   fetchAdminEvents,
+  fetchAdminLog,
   fetchAdminReports,
   fetchAdminStats,
   removeEvent,
   saveEvent,
   setReportStatus,
 } from "../lib/admin.js";
+import "../components/Modals.css";
 import "./Inner.css";
 import "./Pages.css";
 
@@ -36,6 +43,163 @@ const emptyForm = (uni) => ({
   description: "",
 });
 
+const when = (t) =>
+  new Date(t).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+const ACTIONS = {
+  suspend: "suspended",
+  unsuspend: "unsuspended",
+  remove_photo: "removed a photo from",
+};
+
+/* One person: their details, photos, and the suspend button */
+function PersonSheet({ id, onClose, onChanged }) {
+  const toast = useToast();
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [why, setWhy] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await adminGetProfile(id);
+    if (res.error) {
+      setError(res.error);
+    } else {
+      setError("");
+      setData(res);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const p = data?.profile;
+
+  async function removePhoto(path) {
+    if (!window.confirm("Remove this photo from their profile? This can't be undone.")) return;
+    setBusy(true);
+    const res = await adminRemovePhoto(id, path);
+    setBusy(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    toast("Photo removed");
+    await load();
+    onChanged?.();
+  }
+
+  async function toggleSuspend() {
+    const suspended = !!p.suspended_at;
+    const ok = window.confirm(
+      suspended
+        ? `Unsuspend ${p.name}? They'll be able to log in and be seen again.`
+        : `Suspend ${p.name}?\n\nThey'll be logged out, can't log in, and will disappear from everyone's feed and chats. Nothing is deleted, and you can unsuspend them later.`
+    );
+    if (!ok) return;
+    setBusy(true);
+    const res = await adminSetSuspended(id, !suspended, why);
+    setBusy(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    toast(suspended ? "Unsuspended" : "Suspended");
+    setWhy("");
+    await load();
+    onChanged?.();
+  }
+
+  return (
+    <div className="md-overlay" onClick={onClose}>
+      <div className="md-sheet ad-sheet" onClick={(e) => e.stopPropagation()}>
+        {!data && !error && <p className="md-text">Loading...</p>}
+        {error && <p className="md-text">{error}</p>}
+
+        {p && (
+          <>
+            <h2>
+              {p.name}
+              {p.suspended_at && <span className="ad-pill open" style={{ marginLeft: 8 }}>Suspended</span>}
+              {p.is_admin && <span className="ad-pill" style={{ marginLeft: 8 }}>Admin</span>}
+            </h2>
+
+            <div className="ad-kv">
+              <span>Campus</span><span>{p.uni}</span>
+              <span>Department</span><span>{p.department || "-"}</span>
+              <span>Level</span><span>{p.level || "-"}</span>
+              <span>Gender</span><span>{p.gender || "-"}</span>
+              <span>Looking for</span><span>{p.looking_for || "-"}</span>
+              <span>Joined</span>
+              <span>{p.created_at ? new Date(p.created_at).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" }) : "-"}</span>
+              <span>Profile</span><span>{p.hide_all ? "Hidden from everyone" : "Visible on campus"}</span>
+              <span>Reports</span><span>{p.reports_total} against them ({p.reports_open} open)</span>
+            </div>
+
+            {p.bio && <p className="md-text">"{p.bio}"</p>}
+            {Array.isArray(p.interests) && p.interests.length > 0 && (
+              <p className="md-text">Interests: {p.interests.join(", ")}</p>
+            )}
+
+            <h3 className="ad-h3">Photos</h3>
+            {data.photos.length === 0 ? (
+              <p className="md-text">No photos.</p>
+            ) : (
+              <div className="ad-photos">
+                {data.photos.map((ph) => (
+                  <div className="ad-photo" key={ph.path}>
+                    {ph.url ? <img src={ph.url} alt="" /> : <span className="md-text">Couldn't load</span>}
+                    <button className="ad-small danger" onClick={() => removePhoto(ph.path)} disabled={busy}>
+                      Remove photo
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!p.is_admin && (
+              <>
+                <h3 className="ad-h3">{p.suspended_at ? "Unsuspend" : "Suspend this account"}</h3>
+                {!p.suspended_at && (
+                  <textarea
+                    rows="2"
+                    maxLength="300"
+                    placeholder="Reason (saved in the activity log)"
+                    value={why}
+                    onChange={(e) => setWhy(e.target.value)}
+                  />
+                )}
+                <div className="md-row">
+                  <button className="md-btn ghost" onClick={onClose} disabled={busy}>Close</button>
+                  <button
+                    className={`md-btn ${p.suspended_at ? "" : "danger"}`}
+                    onClick={toggleSuspend}
+                    disabled={busy}
+                  >
+                    {busy ? "Please wait..." : p.suspended_at ? "Unsuspend" : "Suspend"}
+                  </button>
+                </div>
+              </>
+            )}
+            {p.is_admin && (
+              <div className="md-row">
+                <button className="md-btn ghost" onClick={onClose}>Close</button>
+              </div>
+            )}
+          </>
+        )}
+
+        {error && (
+          <div className="md-row">
+            <button className="md-btn ghost" onClick={onClose}>Close</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const toast = useToast();
   const me = getUser() || {};
@@ -48,6 +212,13 @@ export default function Admin() {
   const [form, setForm] = useState(emptyForm(me.uni));
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(null); // report whose messages are showing
+  const [voice, setVoice] = useState({});
+
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [personId, setPersonId] = useState(null);
+  const [log, setLog] = useState(null);
 
   const load = useCallback(async () => {
     const [s, e, r] = await Promise.all([
@@ -73,6 +244,12 @@ export default function Admin() {
       cancelled = true;
     };
   }, [load]);
+
+  // The activity list loads when you open that tab
+  useEffect(() => {
+    if (status !== "yes" || tab !== "activity") return;
+    fetchAdminLog().then((res) => setLog(res.rows));
+  }, [tab, status]);
 
   function change(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -127,6 +304,42 @@ export default function Admin() {
     fetchAdminStats().then((s) => s.stats && setStats(s.stats));
   }
 
+  // Shows or hides the recent messages in a report (and gets voice notes ready to play)
+  async function toggleReport(r) {
+    if (open === r.id) {
+      setOpen(null);
+      return;
+    }
+    setOpen(r.id);
+    const paths = (r.context || []).map((m) => m.audio).filter(Boolean);
+    if (paths.length) {
+      const map = await adminVoiceUrls(paths);
+      setVoice((v) => ({ ...v, ...map }));
+    }
+  }
+
+  async function search(e) {
+    e?.preventDefault();
+    if (q.trim().length < 2) {
+      toast("Type at least 2 letters", "err");
+      return;
+    }
+    setSearching(true);
+    const res = await adminFindPeople(q);
+    setSearching(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    setResults(res.rows);
+  }
+
+  function afterChange() {
+    load();
+    if (results !== null && q.trim().length >= 2) adminFindPeople(q).then((res) => setResults(res.rows));
+    if (tab === "activity") fetchAdminLog().then((res) => setLog(res.rows));
+  }
+
   if (status === "checking") {
     return (
       <AppLayout>
@@ -155,7 +368,7 @@ export default function Admin() {
     <AppLayout>
       <div className="pg">
         <h1>Admin</h1>
-        <p className="pg-sub">Events, reports, and sign-up numbers.</p>
+        <p className="pg-sub">Events, reports, people, and activity.</p>
 
         <div className="pg-tabs">
           <button className={tab === "overview" ? "on" : ""} onClick={() => setTab("overview")}>Overview</button>
@@ -164,6 +377,8 @@ export default function Admin() {
             Reports
             {openCount > 0 && <span className="tab-count">{openCount}</span>}
           </button>
+          <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>People</button>
+          <button className={tab === "activity" ? "on" : ""} onClick={() => setTab("activity")}>Activity</button>
         </div>
 
         {/* OVERVIEW */}
@@ -267,7 +482,12 @@ export default function Admin() {
                 {r.note && <p>"{r.note}"</p>}
 
                 <div className="ad-row-actions">
-                  <button className="ad-small" onClick={() => setOpen(open === r.id ? null : r.id)}>
+                  {r.reported_name && (
+                    <button className="ad-small" onClick={() => setPersonId(r.reported_id)}>
+                      View {r.reported_name}
+                    </button>
+                  )}
+                  <button className="ad-small" onClick={() => toggleReport(r)}>
                     {open === r.id ? "Hide messages" : "Show recent messages"}
                   </button>
                   {r.status !== "reviewed" && (
@@ -289,7 +509,15 @@ export default function Admin() {
                       r.context.map((m, i) => (
                         <div key={i}>
                           <b>{m.from === r.reporter_id ? r.reporter_name || "Reporter" : r.reported_name || "Reported"}:</b>{" "}
-                          {m.audio ? "(voice note)" : m.text}
+                          {m.audio ? (
+                            voice[m.audio] ? (
+                              <audio controls preload="none" src={voice[m.audio]} style={{ verticalAlign: "middle", maxWidth: "100%" }} />
+                            ) : (
+                              "(voice note)"
+                            )
+                          ) : (
+                            m.text
+                          )}
                         </div>
                       ))
                     )}
@@ -298,7 +526,72 @@ export default function Admin() {
               </div>
             ))
           ))}
+
+        {/* PEOPLE */}
+        {tab === "people" && (
+          <>
+            <form className="ad-find" onSubmit={search}>
+              <input
+                placeholder="Search by name"
+                value={q}
+                maxLength="60"
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <button type="submit" className="in-btn" disabled={searching}>
+                {searching ? "..." : "Search"}
+              </button>
+            </form>
+
+            {results === null ? (
+              <p className="pg-note">Type at least two letters of a name.</p>
+            ) : results.length === 0 ? (
+              <div className="empty">
+                <h3>No one found</h3>
+                <p>Try a different spelling.</p>
+              </div>
+            ) : (
+              results.map((p) => (
+                <button className="row" key={p.id} onClick={() => setPersonId(p.id)}>
+                  <div className="row-main">
+                    <b>
+                      {p.name}
+                      {p.suspended && <span className="ad-pill open" style={{ marginLeft: 8 }}>Suspended</span>}
+                    </b>
+                    <span>{[p.department, p.level, p.uni].filter(Boolean).join(" · ")}</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </>
+        )}
+
+        {/* ACTIVITY */}
+        {tab === "activity" &&
+          (log === null ? (
+            <p className="pg-note">Loading...</p>
+          ) : log.length === 0 ? (
+            <div className="empty">
+              <i className="ti ti-history"></i>
+              <h3>Nothing yet</h3>
+              <p>Every suspension and photo removal is recorded here.</p>
+            </div>
+          ) : (
+            log.map((a) => (
+              <div className="ev-card" key={a.id}>
+                <div className="ev-meta">{when(a.created_at)}</div>
+                <p style={{ margin: "4px 0" }}>
+                  <b>{a.admin_name || "An admin"}</b> {ACTIONS[a.action] || a.action}{" "}
+                  <b>{a.target_name || "a deleted account"}</b>
+                </p>
+                {a.action !== "remove_photo" && a.detail && <p className="ev-meta">Reason: {a.detail}</p>}
+              </div>
+            ))
+          ))}
       </div>
+
+      {personId && (
+        <PersonSheet id={personId} onClose={() => setPersonId(null)} onChanged={afterChange} />
+      )}
     </AppLayout>
   );
 }
