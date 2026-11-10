@@ -180,20 +180,6 @@ export default function Settings() {
         </div>
 
         <div className="in-card">
-          <h2>Verification</h2>
-          <div className="in-row">
-            <span>Status</span>
-            <span>
-              {user.verified ? (
-                <>Verified <i className="ti ti-rosette-discount-check vb"></i></>
-              ) : (
-                <Link to="/verify" style={{ color: "var(--pink)" }}>Verify now</Link>
-              )}
-            </span>
-          </div>
-        </div>
-
-        <div className="in-card">
           <h2>Privacy</h2>
           <label className="in-toggle">
             <span>Hide my profile from everyone</span>

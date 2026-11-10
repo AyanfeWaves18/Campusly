@@ -36,7 +36,8 @@ export async function syncUser() {
     bio: p.bio,
     prompts: p.prompts,
     photos: p.photos,
-    verified: !!session.user.email_confirmed_at,
+    // Nothing proves a real student yet, so nobody is shown as verified for now
+    verified: false,
     adult: !!p.adult_confirmed_at,
     privacy: { hideAll: p.hide_all, hideDept: p.hide_dept },
     email: session.user.email,

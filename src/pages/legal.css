@@ -1,0 +1,87 @@
+.lg-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.lg {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 20px 40px;
+  flex: 1;
+}
+.lg a {
+  color: var(--pink);
+}
+.lg-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.lg-back {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 16px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.lg-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.lg-tabs a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 16px;
+  color: var(--soft);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.lg-tabs a.on {
+  background: var(--purple);
+  border-color: var(--purple);
+  color: #fff;
+}
+.lg h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.lg-date {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+.lg-intro {
+  color: var(--soft);
+  line-height: 1.6;
+}
+.lg h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 26px 0 8px;
+}
+.lg p {
+  line-height: 1.65;
+  margin-bottom: 10px;
+  color: var(--soft);
+}
+.lg ul {
+  padding-left: 20px;
+  margin: 0 0 10px;
+}
+.lg li {
+  line-height: 1.6;
+  margin-bottom: 6px;
+  color: var(--soft);
+}
+.lg-contact {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}

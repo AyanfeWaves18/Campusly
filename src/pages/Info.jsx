@@ -1,64 +1,63 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
-import { BackIcon } from "../components/Icons.jsx";
-import "./Inner.css";
+import Logo from "../components/Logo.jsx";
+import { LAST_UPDATED, PAGES, SUPPORT_EMAIL } from "../utils/legal.js";
+import "./Legal.css";
 
-const pages = {
-  "/safety": {
-    title: "Safety",
-    sections: [
-      { h: "Meet safely", p: "Meet in public places on campus for the first few times, and tell a friend where you're going and who you're meeting." },
-      { h: "Protect your details", p: "Don't share your hostel room number, passwords, or money details with someone you've just met on Campusly." },
-      { h: "Block and report", p: "If someone makes you uncomfortable, block them and report them. Every report is reviewed, and accounts that break our rules are removed." },
-      { h: "Control who sees you", p: "In your account settings you can hide your profile from everyone, or from your own department." },
-    ],
-  },
-  "/privacy": {
-    title: "Privacy",
-    sections: [
-      { h: "What we collect", p: "Your name, phone number, email, and the profile details you choose to add, like your department, level, and interests." },
-      { h: "How we use it", p: "We use your details to run your account and to show you to other students on your campus. We don't sell your personal information." },
-      { h: "Your choices", p: "You can edit your profile, hide it, or delete your account at any time from your account settings." },
-    ],
-  },
-  "/terms": {
-    title: "Terms",
-    sections: [
-      { h: "Who can use Campusly", p: "Campusly is for university students. You must be 18 or older and give accurate information about yourself." },
-      { h: "Be respectful", p: "No harassment, hate speech, fake profiles, or explicit content. Accounts that break these rules can be removed without notice." },
-      { h: "Your account", p: "You're responsible for keeping your password safe and for what happens on your account." },
-      { h: "Changes", p: "We may update these terms as Campusly grows. We'll let you know about important changes." },
-    ],
-  },
-};
+const TABS = [
+  ["terms", "Terms"],
+  ["privacy", "Privacy"],
+  ["safety", "Safety"],
+];
 
 export default function Info() {
+  const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { pathname, key } = useLocation();
-  const page = pages[pathname] || pages["/safety"];
+  const key = pathname.replace("/", "");
+  const page = PAGES[key] || PAGES.terms;
+  const current = PAGES[key] ? key : "terms";
 
-  // Go back to wherever the person came from. If they opened this page directly, go home.
-  function goBack() {
-    if (key !== "default") navigate(-1);
+  // Goes back to the page you came from. If this page was opened in a new tab, go to the start page.
+  function back() {
+    if (window.history.length > 1) navigate(-1);
     else navigate("/");
   }
 
   return (
-    <div className="in-page">
-      <header className="in-top">
-        <button className="in-back" onClick={goBack} aria-label="Go back">
-          <BackIcon size={22} />
-        </button>
-        <h1>{page.title}</h1>
-      </header>
+    <div className="lg-page">
+      <main className="lg">
+        <div className="lg-top">
+          <button className="lg-back" onClick={back}>← Back</button>
+          <Link to="/" className="lg-logo"><Logo size={30} /></Link>
+        </div>
 
-      <main className="in-wrap">
+        <nav className="lg-tabs">
+          {TABS.map(([k, label]) => (
+            <Link key={k} to={`/${k}`} replace className={current === k ? "on" : ""}>
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <h1>{page.title}</h1>
+        <p className="lg-date">Last updated {LAST_UPDATED}</p>
+        <p className="lg-intro">{page.intro}</p>
+
         {page.sections.map((s) => (
-          <div className="in-card" key={s.h}>
+          <section key={s.h}>
             <h2>{s.h}</h2>
-            <p>{s.p}</p>
-          </div>
+            {s.p && s.p.map((t, i) => <p key={i}>{t}</p>)}
+            {s.list && (
+              <ul>
+                {s.list.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            )}
+          </section>
         ))}
+
+        <p className="lg-contact">
+          Questions? Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+        </p>
       </main>
 
       <Footer />

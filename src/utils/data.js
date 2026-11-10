@@ -42,7 +42,6 @@ export function completeness(u = {}) {
     { label: "Write a short bio", done: !!u.bio?.trim() },
     { label: "Answer an icebreaker prompt", done: Object.values(u.prompts || {}).some(Boolean) },
     { label: "Pick at least 3 interests", done: (u.interests || []).length >= 3 },
-    { label: "Verify your account", done: !!u.verified },
   ];
   const done = items.filter((i) => i.done).length;
   return { pct: 40 + done * 12, items, next: items.find((i) => !i.done)?.label };

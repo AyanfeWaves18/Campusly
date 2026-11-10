@@ -417,12 +417,6 @@ export default function Auth({ mode }) {
                 {busy ? "Please wait..." : "Log in"}
               </button>
 
-              <button type="button" className="au-link" onClick={switchLogin}>
-                {loginBy === "email"
-                  ? "Forgot your email? Log in with your phone number"
-                  : "Log in with your email instead"}
-              </button>
-
               <GoogleButton onClick={handleGoogle} />
 
               <p className="au-switch">

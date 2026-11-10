@@ -90,9 +90,6 @@ export default function ForgotForm() {
         {busy ? "Sending..." : "Send reset link"}
       </button>
 
-      <button type="button" className="au-link" onClick={() => setBy("phone")}>
-        Use my phone number instead
-      </button>
       <p className="au-switch">
         Remembered it? <Link to="/login">Log in</Link>
       </p>
