@@ -19,6 +19,7 @@ import {
 import { checkPassword } from "../utils/validate.js";
 import "./Inner.css";
 import { SUPPORT_EMAIL } from "../utils/legal.js";
+import { InstallCard } from "./../components/InstallApp.jsx";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -215,6 +216,7 @@ export default function Settings() {
           )}
         </div>
 
+                   <InstallCard />
         <div className="in-card">
           <h2>Help and legal</h2>
           <div className="in-row">
@@ -236,7 +238,7 @@ export default function Settings() {
             <Link to="/terms" style={{ color: "var(--pink)" }}>Terms of Use</Link>
           </div>
         </div>
-        
+
         <div className="in-card">
           <h2>Session</h2>
           <div className="in-btns">

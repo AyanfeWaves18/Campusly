@@ -22,6 +22,7 @@ import { CookieNotice } from "./components/Modals.jsx";
 import Protect from "./components/Protect.jsx";
 import AuthSync from "./components/AuthSync.jsx";
 import GlobalRefresh from "./components/GlobalRefresh.jsx";
+import InstallBanner from "./components/InstallApp.jsx";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       <CookieNotice />
+      <InstallBanner />
     </>
   );
 }
