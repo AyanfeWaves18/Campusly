@@ -18,6 +18,7 @@ import {
 } from "../utils/storage.js";
 import { checkPassword } from "../utils/validate.js";
 import "./Inner.css";
+import { SUPPORT_EMAIL } from "../utils/legal.js";
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -214,6 +215,28 @@ export default function Settings() {
           )}
         </div>
 
+        <div className="in-card">
+          <h2>Help and legal</h2>
+          <div className="in-row">
+            <span>Contact support</span>
+            <a href={`mailto:${SUPPORT_EMAIL}?subject=Campusly%20help`} style={{ color: "var(--pink)" }}>
+              Email us
+            </a>
+          </div>
+          <div className="in-row">
+            <span>Staying safe</span>
+            <Link to="/safety" style={{ color: "var(--pink)" }}>Safety tips</Link>
+          </div>
+          <div className="in-row">
+            <span>Your data</span>
+            <Link to="/privacy" style={{ color: "var(--pink)" }}>Privacy Policy</Link>
+          </div>
+          <div className="in-row">
+            <span>The rules</span>
+            <Link to="/terms" style={{ color: "var(--pink)" }}>Terms of Use</Link>
+          </div>
+        </div>
+        
         <div className="in-card">
           <h2>Session</h2>
           <div className="in-btns">
