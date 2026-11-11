@@ -5,6 +5,7 @@ import Logo from "../components/Logo.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { supabase } from "../lib/supabase.js";
 import { completeMyProfile, syncUser } from "../lib/auth.js";
+import { normCode } from "../lib/codes.js";
 import { load, save, setLoggedIn } from "../utils/storage.js";
 import {
   departments,
@@ -39,6 +40,7 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [agree, setAgree] = useState(alreadyConfirmed);
+  const [invite, setInvite] = useState(() => normCode(load("invite_code", "")));
   const [form, setForm] = useState({
     name: "",
     uni: CAMPUSES.includes(saved) ? saved : "",
@@ -109,19 +111,21 @@ export default function Onboarding() {
       return setError("Fill in your gender, department, level, and what you're looking for.");
     }
     if (form.interests.length === 0) return setError("Pick at least one interest.");
+    if (invite.length !== 9) return setError("Enter your invite code to continue.");
     if (!agree) {
       return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
     }
 
     setBusy(true);
     setError("");
-    const res = await completeMyProfile({ ...form, adult: agree });
+    const res = await completeMyProfile({ ...form, adult: agree, invite });
     setBusy(false);
     if (res.error) {
       setError(res.error);
       return;
     }
     save("adult_pending", false);
+    save("invite_code", "");
     toast("Welcome to Campusly!");
     navigate("/feed", { replace: true });
   }
@@ -221,6 +225,18 @@ export default function Onboarding() {
               value={form.bio}
               onChange={update}
             />
+
+            <label>Invite code</label>
+            <input
+              placeholder="ABCD-1234"
+              autoCapitalize="characters"
+              autoComplete="off"
+              value={invite}
+              onChange={(e) => { setInvite(normCode(e.target.value)); setError(""); }}
+            />
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-6px 0 14px" }}>
+              Campusly is invite-only for now. Ask the person who told you about it.
+            </p>
 
             {/* Only shown if they didn't tick it on the Create account page */}
             {!alreadyConfirmed && (

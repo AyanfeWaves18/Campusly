@@ -56,7 +56,7 @@ export async function syncUser() {
   return user;
 }
 
-export async function signUpUser(form, uni, captchaToken) {
+  export async function signUpUser(form, uni, captchaToken, invite) {
   const email = form.email.trim().toLowerCase();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -78,6 +78,7 @@ export async function signUpUser(form, uni, captchaToken) {
         bio: form.bio,
         adult: true,
         terms: TERMS_VERSION,
+        invite: (invite || "").trim().toUpperCase(),
       },
     },
   });
@@ -162,6 +163,7 @@ export async function completeMyProfile(f) {
     p_interests: f.interests,
     p_bio: f.bio || null,
     p_adult: !!f.adult,
+    p_invite: (f.invite || "").trim().toUpperCase() || null,
   });
 
   if (error) {
@@ -171,6 +173,9 @@ export async function completeMyProfile(f) {
     }
     if (msg === "adult required") {
       return { error: "Please confirm you're 18 or older to continue." };
+    }
+    if (msg === "invalid invite") {
+      return { error: "That invite code isn't valid, or it has been used up. Ask for a new one." };
     }
     if (msg === "invalid phone") return { error: "Enter a valid phone number.", field: "phone" };
     if (msg === "invalid campus") return { error: "Choose your university." };

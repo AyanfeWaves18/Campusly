@@ -136,3 +136,28 @@ export async function fetchAdminLog() {
   if (error) return { error: "We couldn't load the activity.", rows: [] };
   return { rows: data || [] };
 }
+
+
+/* ---------- Invite codes ---------- */
+
+export async function listInvites() {
+  const { data, error } = await supabase.rpc("admin_list_invites");
+  if (error) return { error: "We couldn't load invite codes.", rows: [] };
+  return { rows: data || [] };
+}
+
+export async function createInvite(label, max, days) {
+  const { data, error } = await supabase.rpc("admin_create_invite", {
+    p_label: label || null,
+    p_max: max,
+    p_days: days || null,
+  });
+  if (error) return { error: "We couldn't create that code. Check the numbers and try again." };
+  return { code: data };
+}
+
+export async function setInviteActive(code, active) {
+  const { error } = await supabase.rpc("admin_set_invite_active", { invite_code: code, is_active: active });
+  if (error) return { error: "We couldn't change that code." };
+  return { ok: true };
+}

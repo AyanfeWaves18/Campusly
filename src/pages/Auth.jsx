@@ -7,6 +7,7 @@ import Logo from "../components/Logo.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { signInUser, signInWithGoogle, signUpUser } from "../lib/auth.js";
+import { checkInvite, normCode } from "../lib/codes.js";
 import {
   departments,
   levels,
@@ -18,6 +19,10 @@ import {
 import "./Auth.css";
 
 const digits = (s) => (s || "").replace(/\D/g, "");
+
+const AGE_ERROR = "Please confirm you're 18 or older and accept the Terms and Privacy Policy.";
+const NEED_CODE = "Enter your invite code to create an account.";
+const BAD_CODE = "That invite code isn't valid. It may be misspelled, expired, or already used up.";
 
 function PasswordField({ value, onChange, placeholder, show, setShow, name = "password" }) {
   return (
@@ -57,11 +62,11 @@ function Chip({ on, onClick, children }) {
   );
 }
 
-function GoogleButton({ onClick }) {
+function GoogleButton({ onClick, disabled }) {
   return (
     <>
       <div className="au-or"><span>or</span></div>
-      <button type="button" className="au-google" onClick={onClick}>
+      <button type="button" className="au-google" onClick={onClick} disabled={disabled}>
         <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
@@ -78,6 +83,10 @@ export default function Auth({ mode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // A link like /signup?code=ABCD-1234 remembers the code, even if the start page comes first
+  const urlCode = normCode(new URLSearchParams(location.search).get("code"));
+  if (urlCode) save("invite_code", urlCode);
+
   // The university must be chosen on the landing page first
   const uni = location.state?.uni || load("uni", "") || getUser()?.uni || "";
 
@@ -88,6 +97,7 @@ export default function Auth({ mode }) {
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaReset, setCaptchaReset] = useState(0);
   const [agree, setAgree] = useState(false);
+  const [invite, setInvite] = useState(() => normCode(urlCode || load("invite_code", "")));
 
   const [form, setForm] = useState({
     name: "",
@@ -104,7 +114,6 @@ export default function Auth({ mode }) {
     bio: "",
   });
 
-  const [loginBy, setLoginBy] = useState("email");
   const [login, setLogin] = useState({ id: "", password: "" });
 
   useEffect(() => {
@@ -141,20 +150,31 @@ export default function Auth({ mode }) {
     setField("deptPrefs", next.length ? next : ["Any department"]);
   }
 
-  const comingSoon = (what) => setError(`${what} is being connected to the real database. Coming in the next step.`);
-
-  const AGE_ERROR = "Please confirm you're 18 or older and accept the Terms and Privacy Policy.";
-
   async function handleGoogle() {
     setError("");
-    // Creating an account with Google needs the same confirmation as the email form
-    if (mode === "signup" && !agree) {
-      setError(AGE_ERROR);
-      return;
+    // Creating an account with Google needs the same confirmation and invite code as the email form
+    if (mode === "signup") {
+      if (!agree) {
+        setError(AGE_ERROR);
+        return;
+      }
+      if (!invite) {
+        setError(NEED_CODE);
+        return;
+      }
+      setBusy(true);
+      const ok = await checkInvite(invite);
+      if (!ok) {
+        setBusy(false);
+        setError(BAD_CODE);
+        return;
+      }
+    } else {
+      setBusy(true);
     }
-    // Remember it: the Google sign-up finishes on another screen after Google sends you back
+    // Remember them: the Google sign-up finishes on another screen after Google sends you back
+    save("invite_code", invite);
     save("adult_pending", mode === "signup");
-    setBusy(true);
     const res = await signInWithGoogle();
     if (res?.error) {
       setBusy(false);
@@ -164,7 +184,7 @@ export default function Auth({ mode }) {
   }
 
   /* ---------- Sign up ---------- */
-  function nextStep(e) {
+  async function nextStep(e) {
     e.preventDefault();
     if (!form.name.trim() || !form.phone.trim() || !form.email.trim() || !form.password) {
       setError("Fill in every field to continue.");
@@ -183,8 +203,19 @@ export default function Auth({ mode }) {
       setError(pwError);
       return;
     }
+    if (!invite) {
+      setError(NEED_CODE);
+      return;
+    }
     if (!agree) {
       setError(AGE_ERROR);
+      return;
+    }
+    setBusy(true);
+    const ok = await checkInvite(invite);
+    setBusy(false);
+    if (!ok) {
+      setError(BAD_CODE);
       return;
     }
     setError("");
@@ -203,7 +234,7 @@ export default function Auth({ mode }) {
     }
     setBusy(true);
     setError("");
-    const { error: err, field, signedIn } = await signUpUser(form, uni, captchaToken);
+    const { error: err, field, signedIn } = await signUpUser(form, uni, captchaToken, invite);
     setBusy(false);
     if (err) {
       spendCaptcha();
@@ -211,6 +242,7 @@ export default function Auth({ mode }) {
       setError(err);
       return;
     }
+    save("invite_code", "");
     if (signedIn) {
       navigate("/feed");
     } else {
@@ -219,18 +251,8 @@ export default function Auth({ mode }) {
   }
 
   /* ---------- Log in ---------- */
-  function switchLogin() {
-    setLoginBy(loginBy === "email" ? "phone" : "email");
-    setLogin({ ...login, id: "" });
-    setError("");
-  }
-
   async function handleLogin(e) {
     e.preventDefault();
-    if (loginBy === "phone") {
-      comingSoon("Logging in with a phone number");
-      return;
-    }
     if (!login.id.trim() || !login.password) {
       setError("Enter your email and password.");
       return;
@@ -284,6 +306,19 @@ export default function Auth({ mode }) {
               />
               <PwRules pw={form.password} />
 
+              <label>Invite code</label>
+              <input
+                name="invite"
+                placeholder="ABCD-1234"
+                autoCapitalize="characters"
+                autoComplete="off"
+                value={invite}
+                onChange={(e) => { setInvite(normCode(e.target.value)); setError(""); }}
+              />
+              <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-6px 0 14px" }}>
+                Campusly is invite-only for now. Ask the person who told you about it.
+              </p>
+
               <label className="au-agree">
                 <input
                   type="checkbox"
@@ -298,9 +333,11 @@ export default function Auth({ mode }) {
               </label>
 
               {error && <div className="au-error">{error}</div>}
-              <button type="submit" className="au-btn">Continue</button>
+              <button type="submit" className="au-btn" disabled={busy}>
+                {busy ? "Checking..." : "Continue"}
+              </button>
 
-              <GoogleButton onClick={handleGoogle} />
+              <GoogleButton onClick={handleGoogle} disabled={busy} />
 
               <p className="au-switch">
                 Already have an account? <Link to="/login">Log in</Link>
@@ -391,10 +428,10 @@ export default function Auth({ mode }) {
               <h1>Welcome back</h1>
               <p className="au-sub">Log in to see who's on your campus.</p>
 
-              <label>{loginBy === "email" ? "Email" : "Phone number"}</label>
+              <label>Email</label>
               <input
-                type={loginBy === "email" ? "email" : "tel"}
-                placeholder={loginBy === "email" ? "name@email.com" : "0801 234 5678"}
+                type="email"
+                placeholder="name@email.com"
                 value={login.id}
                 onChange={(e) => { setLogin({ ...login, id: e.target.value }); setError(""); }}
               />
@@ -417,7 +454,7 @@ export default function Auth({ mode }) {
                 {busy ? "Please wait..." : "Log in"}
               </button>
 
-              <GoogleButton onClick={handleGoogle} />
+              <GoogleButton onClick={handleGoogle} disabled={busy} />
 
               <p className="au-switch">
                 New here? <Link to="/signup">Create account</Link>

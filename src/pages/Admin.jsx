@@ -20,6 +20,7 @@ import {
   saveEvent,
   setReportStatus,
 } from "../lib/admin.js";
+import AdminInvites from "../components/AdminInvites.jsx";
 import "../components/Modals.css";
 import "./Inner.css";
 import "./Pages.css";
@@ -50,6 +51,9 @@ const ACTIONS = {
   suspend: "suspended",
   unsuspend: "unsuspended",
   remove_photo: "removed a photo from",
+       create_invite: "created the invite code",
+     enable_invite: "switched on the invite code",
+     disable_invite: "switched off the invite code",
 };
 
 /* One person: their details, photos, and the suspend button */
@@ -135,6 +139,7 @@ function PersonSheet({ id, onClose, onChanged }) {
               <span>{p.created_at ? new Date(p.created_at).toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" }) : "-"}</span>
               <span>Profile</span><span>{p.hide_all ? "Hidden from everyone" : "Visible on campus"}</span>
               <span>Reports</span><span>{p.reports_total} against them ({p.reports_open} open)</span>
+              <span>Invite code</span><span>{p.invite_code || "-"}</span>
             </div>
 
             {p.bio && <p className="md-text">"{p.bio}"</p>}
@@ -379,6 +384,7 @@ export default function Admin() {
           </button>
           <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>People</button>
           <button className={tab === "activity" ? "on" : ""} onClick={() => setTab("activity")}>Activity</button>
+          <button className={tab === "invites" ? "on" : ""} onClick={() => setTab("invites")}>Invites</button>
         </div>
 
         {/* OVERVIEW */}
@@ -564,6 +570,7 @@ export default function Admin() {
             )}
           </>
         )}
+                   {tab === "invites" && <AdminInvites />}
 
         {/* ACTIVITY */}
         {tab === "activity" &&
@@ -581,9 +588,15 @@ export default function Admin() {
                 <div className="ev-meta">{when(a.created_at)}</div>
                 <p style={{ margin: "4px 0" }}>
                   <b>{a.admin_name || "An admin"}</b> {ACTIONS[a.action] || a.action}{" "}
-                  <b>{a.target_name || "a deleted account"}</b>
+                  {a.target_id ? (
+                    <b>{a.target_name || "a deleted account"}</b>
+                  ) : (
+                    <b>{a.detail}</b>
+                  )}
                 </p>
-                {a.action !== "remove_photo" && a.detail && <p className="ev-meta">Reason: {a.detail}</p>}
+                {a.target_id && a.action !== "remove_photo" && a.detail && (
+                  <p className="ev-meta">Reason: {a.detail}</p>
+                )}
               </div>
             ))
           ))}
