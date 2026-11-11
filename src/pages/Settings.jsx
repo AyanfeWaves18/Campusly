@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import Captcha from "../components/Captcha.jsx";
 import { useToast } from "../components/Toast.jsx";
+import InviteFriends from "../components/InviteFriends.jsx";
 import { supabase } from "../lib/supabase.js";
 import { removeAllMyPhotos } from "../lib/photos.js";
 import { removeAllMyVoiceNotes } from "../lib/voice.js";
@@ -215,7 +216,7 @@ export default function Settings() {
             ))
           )}
         </div>
-
+           <InviteFriends />
                    <InstallCard />
         <div className="in-card">
           <h2>Help and legal</h2>

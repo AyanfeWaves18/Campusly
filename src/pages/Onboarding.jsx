@@ -5,7 +5,7 @@ import Logo from "../components/Logo.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { supabase } from "../lib/supabase.js";
 import { completeMyProfile, syncUser } from "../lib/auth.js";
-import { normCode } from "../lib/codes.js";
+import { checkInvite, normCode } from "../lib/codes.js";
 import { load, save, setLoggedIn } from "../utils/storage.js";
 import {
   departments,
@@ -111,7 +111,9 @@ export default function Onboarding() {
       return setError("Fill in your gender, department, level, and what you're looking for.");
     }
     if (form.interests.length === 0) return setError("Pick at least one interest.");
-    if (invite.length !== 9) return setError("Enter your invite code to continue.");
+           if (invite && !(await checkInvite(invite))) {
+         return setError("We couldn't find that invite code. Check it, or clear the box to continue without one.");
+       }
     if (!agree) {
       return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
     }
@@ -226,7 +228,7 @@ export default function Onboarding() {
               onChange={update}
             />
 
-            <label>Invite code</label>
+            <label>Invite code (optional)</label>
             <input
               placeholder="ABCD-1234"
               autoCapitalize="characters"
@@ -235,7 +237,7 @@ export default function Onboarding() {
               onChange={(e) => { setInvite(normCode(e.target.value)); setError(""); }}
             />
             <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-6px 0 14px" }}>
-              Campusly is invite-only for now. Ask the person who told you about it.
+              Got a code from a friend? Enter it here. You can leave this empty. Ask the person who told you about it.
             </p>
 
             {/* Only shown if they didn't tick it on the Create account page */}

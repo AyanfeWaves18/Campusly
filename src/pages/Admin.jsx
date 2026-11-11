@@ -140,6 +140,8 @@ function PersonSheet({ id, onClose, onChanged }) {
               <span>Profile</span><span>{p.hide_all ? "Hidden from everyone" : "Visible on campus"}</span>
               <span>Reports</span><span>{p.reports_total} against them ({p.reports_open} open)</span>
               <span>Invite code</span><span>{p.invite_code || "-"}</span>
+              <span>Invited by</span><span>{p.invited_by || "-"}</span>
+              <span>Invited</span><span>{p.invited_count} {p.invited_count === 1 ? "person" : "people"}</span>
             </div>
 
             {p.bio && <p className="md-text">"{p.bio}"</p>}

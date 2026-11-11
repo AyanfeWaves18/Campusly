@@ -21,8 +21,8 @@ import "./Auth.css";
 const digits = (s) => (s || "").replace(/\D/g, "");
 
 const AGE_ERROR = "Please confirm you're 18 or older and accept the Terms and Privacy Policy.";
-const NEED_CODE = "Enter your invite code to create an account.";
-const BAD_CODE = "That invite code isn't valid. It may be misspelled, expired, or already used up.";
+
+const BAD_CODE = "We couldn't find that invite code. Check it, or clear the box to continue without one.";
 
 function PasswordField({ value, onChange, placeholder, show, setShow, name = "password" }) {
   return (
@@ -158,17 +158,16 @@ export default function Auth({ mode }) {
         setError(AGE_ERROR);
         return;
       }
-      if (!invite) {
-        setError(NEED_CODE);
-        return;
-      }
-      setBusy(true);
-      const ok = await checkInvite(invite);
-      if (!ok) {
-        setBusy(false);
-        setError(BAD_CODE);
-        return;
-      }
+      
+         setBusy(true);
+         if (invite) {
+           const ok = await checkInvite(invite);
+           if (!ok) {
+             setBusy(false);
+             setError(BAD_CODE);
+             return;
+           }
+         }
     } else {
       setBusy(true);
     }
@@ -306,7 +305,7 @@ export default function Auth({ mode }) {
               />
               <PwRules pw={form.password} />
 
-              <label>Invite code</label>
+                 <label>Invite code (optional)</label>
               <input
                 name="invite"
                 placeholder="ABCD-1234"
@@ -316,7 +315,7 @@ export default function Auth({ mode }) {
                 onChange={(e) => { setInvite(normCode(e.target.value)); setError(""); }}
               />
               <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-6px 0 14px" }}>
-                Campusly is invite-only for now. Ask the person who told you about it.
+                  Got a code from a friend? Enter it here. You can leave this empty. Ask the person who told you about it.
               </p>
 
               <label className="au-agree">
