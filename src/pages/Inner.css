@@ -246,3 +246,18 @@
   cursor: pointer;
   padding: 4px;
 }
+
+.ck-tap {
+  cursor: pointer;
+}
+.ck-tap:hover > span:first-child {
+  text-decoration: underline;
+}
+.ck-go {
+  color: var(--pink);
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}

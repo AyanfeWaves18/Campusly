@@ -46,3 +46,34 @@ export function completeness(u = {}) {
   const done = items.filter((i) => i.done).length;
   return { pct: 40 + done * 12, items, next: items.find((i) => !i.done)?.label };
 }
+
+// Switch this on when email confirmation is turned on. The "Verify" item then shows only for
+// people who signed up by email (the user object also needs a `provider` field when you do).
+const SHOW_VERIFY_ITEM = false;
+
+export function completeness(u = {}) {
+  const realPhotos = (u.photos || []).filter((p) => typeof p === "string" && !p.startsWith("data:"));
+
+  const items = [
+    { id: "photo", label: "Add a photo", cta: "Add", done: realPhotos.length > 0 },
+    { id: "bio", label: "Write a short bio", cta: "Write", done: !!u.bio?.trim() },
+    {
+      id: "prompt",
+      label: "Answer an icebreaker prompt",
+      cta: "Answer",
+      done: Object.values(u.prompts || {}).some(Boolean),
+    },
+    { id: "interests", label: "Pick at least 3 interests", cta: "Pick", done: (u.interests || []).length >= 3 },
+  ];
+
+  if (SHOW_VERIFY_ITEM && u.provider === "email") {
+    items.push({ id: "verify", label: "Verify your account", cta: "Verify", done: !!u.verified });
+  }
+
+  const done = items.filter((i) => i.done).length;
+  return {
+    pct: Math.round(40 + (done / items.length) * 60),
+    items,
+    next: items.find((i) => !i.done)?.label,
+  };
+}

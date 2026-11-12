@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import Avatar from "../components/Avatar.jsx";
-import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
 import CalendarSheet from "../components/CalendarSheet.jsx";
 import Lightbox from "../components/Lightbox.jsx";
 import { XIcon } from "../components/Icons.jsx";
@@ -26,6 +25,8 @@ export default function Profile() {
   const [urls, setUrls] = useState({});
   const [viewIndex, setViewIndex] = useState(null);
   const [calEvent, setCalEvent] = useState(null);
+  const [focusOn, setFocusOn] = useState(null); // "bio" | "prompt" | "interests"
+  const fileRef = useRef(null);
 
   // Photos are stored in the cloud as file paths. Old on-device test photos are ignored.
   const paths = (user.photos || []).filter((p) => typeof p === "string" && !p.startsWith("data:"));
@@ -50,6 +51,17 @@ export default function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paths.join("|")]);
 
+  // After the editor opens from a checklist item, scroll to the right spot and focus it
+  useEffect(() => {
+    if (!editing || !focusOn) return;
+    const el = document.getElementById(`pf-${focusOn}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") el.focus({ preventScroll: true });
+    }
+    setFocusOn(null);
+  }, [editing, focusOn]);
+
   function change(e) {
     setDraft({ ...draft, [e.target.name]: e.target.value });
   }
@@ -62,6 +74,30 @@ export default function Profile() {
       ...draft,
       interests: has ? draft.interests.filter((x) => x !== i) : [...(draft.interests || []), i],
     });
+  }
+
+  // Opens the editor (if it isn't open already) and points at one part of it
+  function startEdit(focus) {
+    if (!editing) {
+      setDraft(user);
+      setEditing(true);
+    }
+    setFocusOn(focus);
+  }
+
+  // Tapping an unfinished checklist item takes you straight to where you finish it
+  function doItem(item) {
+    if (item.done) return;
+    if (item.id === "photo") {
+      document.getElementById("pf-photos")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      fileRef.current?.click();
+    } else if (item.id === "bio") {
+      startEdit("bio");
+    } else if (item.id === "prompt") {
+      startEdit("prompt");
+    } else if (item.id === "interests") {
+      startEdit("interests");
+    }
   }
 
   async function saveProfile() {
@@ -116,6 +152,8 @@ export default function Profile() {
   }
 
   const answered = Object.entries(user.prompts || {}).filter(([, a]) => a);
+  // The first icebreaker that isn't answered yet is the one we point at
+  const firstOpenPrompt = promptQuestions.find((q) => !draft.prompts?.[q]) || promptQuestions[0];
 
   return (
     <AppLayout>
@@ -148,7 +186,7 @@ export default function Profile() {
               {user.bio && <div className="in-row"><span>Bio</span><span>{user.bio}</span></div>}
 
               <div className="in-btns" style={{ marginTop: 16 }}>
-                <button className="in-btn" onClick={() => { setDraft(user); setEditing(true); }}>Edit profile</button>
+                <button className="in-btn" onClick={() => startEdit(null)}>Edit profile</button>
                 <Link to="/settings" className="in-btn ghost">Account settings</Link>
               </div>
             </>
@@ -168,10 +206,10 @@ export default function Profile() {
               </select>
 
               <label>Bio</label>
-              <textarea name="bio" rows="3" maxLength="160" value={draft.bio || ""} onChange={change} />
+              <textarea id="pf-bio" name="bio" rows="3" maxLength="160" value={draft.bio || ""} onChange={change} />
 
               <label>Interests</label>
-              <div className="au-chips">
+              <div className="au-chips" id="pf-interests">
                 {interestsList.map((i) => (
                   <button
                     type="button"
@@ -188,7 +226,12 @@ export default function Profile() {
               {promptQuestions.map((q) => (
                 <div key={q}>
                   <small style={{ color: "var(--muted)" }}>{q}</small>
-                  <input maxLength="80" value={draft.prompts?.[q] || ""} onChange={(e) => setPrompt(q, e.target.value)} />
+                  <input
+                    id={q === firstOpenPrompt ? "pf-prompt" : undefined}
+                    maxLength="80"
+                    value={draft.prompts?.[q] || ""}
+                    onChange={(e) => setPrompt(q, e.target.value)}
+                  />
                 </div>
               ))}
 
@@ -202,7 +245,7 @@ export default function Profile() {
           )}
         </div>
 
-        <div className="in-card">
+        <div className="in-card" id="pf-photos">
           <h2>My photos</h2>
           <div className="ph-grid">
             {paths.map((p, i) => (
@@ -222,6 +265,7 @@ export default function Profile() {
                 <span style={{ fontSize: "1.6rem" }}>{uploading ? "..." : "+"}</span>
                 {uploading ? "Uploading" : "Add photo"}
                 <input
+                  ref={fileRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   onChange={onPhoto}
@@ -250,7 +294,7 @@ export default function Profile() {
                   {ev.title}
                   <br />
                   <small style={{ color: "var(--muted)" }}>{formatWhen(ev.start)} · {ev.where}</small>
-                                    {withNames[ev.id] && (
+                  {withNames[ev.id] && (
                     <>
                       <br />
                       <small style={{ color: "var(--pink)" }}>Going with {withNames[ev.id].join(", ")}</small>
@@ -268,19 +312,50 @@ export default function Profile() {
         <div className="in-card">
           <h2>Profile completeness: {pct}%</h2>
           <div className="pb" style={{ marginBottom: 14 }}><span style={{ width: `${pct}%` }}></span></div>
-          {items.map((i) => (
-            <div className="in-row" key={i.label}>
-              <span style={{ color: i.done ? "var(--text)" : "var(--muted)" }}>{i.label}</span>
-              {i.label === "Verify your account" && !i.done ? (
-                <Link to="/verify" style={{ color: "var(--pink)" }}>Verify</Link>
-              ) : (
-                <i
-                  className={`ti ${i.done ? "ti-circle-check" : "ti-circle"}`}
-                  style={{ color: i.done ? "#1D9E75" : "var(--muted)" }}
-                ></i>
-              )}
-            </div>
-          ))}
+          {pct < 100 && (
+            <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-4px 0 8px" }}>
+              Tap an item to finish it.
+            </p>
+          )}
+
+          {items.map((i) => {
+            if (i.done) {
+              return (
+                <div className="in-row" key={i.id}>
+                  <span style={{ color: "var(--text)" }}>{i.label}</span>
+                  <i className="ti ti-circle-check" style={{ color: "#1D9E75" }}></i>
+                </div>
+              );
+            }
+            if (i.id === "verify") {
+              return (
+                <div className="in-row" key={i.id}>
+                  <span style={{ color: "var(--text)" }}>{i.label}</span>
+                  <Link to="/verify" style={{ color: "var(--pink)" }}>Verify</Link>
+                </div>
+              );
+            }
+            return (
+              <div
+                className="in-row ck-tap"
+                key={i.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => doItem(i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    doItem(i);
+                  }
+                }}
+              >
+                <span style={{ color: "var(--text)" }}>{i.label}</span>
+                <span className="ck-go">
+                  {i.cta} <i className="ti ti-chevron-right"></i>
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
