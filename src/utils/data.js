@@ -36,17 +36,6 @@ export const receivedCompliments = [
   { id: 2, text: "Someone thinks you have great energy.", when: "Last week" },
 ];
 
-export function completeness(u = {}) {
-  const items = [
-    { label: "Add a photo", done: userPhotos(u).length > 0 },
-    { label: "Write a short bio", done: !!u.bio?.trim() },
-    { label: "Answer an icebreaker prompt", done: Object.values(u.prompts || {}).some(Boolean) },
-    { label: "Pick at least 3 interests", done: (u.interests || []).length >= 3 },
-  ];
-  const done = items.filter((i) => i.done).length;
-  return { pct: 40 + done * 12, items, next: items.find((i) => !i.done)?.label };
-}
-
 // Switch this on when email confirmation is turned on. The "Verify" item then shows only for
 // people who signed up by email (the user object also needs a `provider` field when you do).
 const SHOW_VERIFY_ITEM = false;
