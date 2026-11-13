@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import LandingPage from "./pages/LandingPage.jsx";
 import Auth from "./pages/Auth.jsx";
 import Verify from "./pages/Verify.jsx";
@@ -23,6 +24,7 @@ import Protect from "./components/Protect.jsx";
 import AuthSync from "./components/AuthSync.jsx";
 import GlobalRefresh from "./components/GlobalRefresh.jsx";
 import InstallBanner from "./components/InstallApp.jsx";
+import { SUPPORT_EMAIL } from "./utils/legal.js";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -32,12 +34,49 @@ function ScrollToTop() {
   return null;
 }
 
+// Shown instead of a blank page if something unexpected breaks
+function CrashScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        textAlign: "center",
+      }}
+    >
+      <div style={{ maxWidth: 380 }}>
+        <h1 style={{ fontSize: "1.4rem", marginBottom: 8 }}>Something went wrong</h1>
+        <p style={{ opacity: 0.8, lineHeight: 1.5, marginBottom: 18 }}>
+          We've been told about it. Please reload the page. If it keeps happening, write to {SUPPORT_EMAIL}.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          style={{
+            background: "var(--pink)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 999,
+            padding: "10px 24px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Reload
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // Changing this number starts the current page fresh, so it loads its data again
   const [reloadKey, setReloadKey] = useState(0);
 
   return (
-    <>
+    <Sentry.ErrorBoundary fallback={<CrashScreen />}>
       <Protect />
       <AuthSync />
       <ScrollToTop />
@@ -68,6 +107,6 @@ export default function App() {
       </Routes>
       <CookieNotice />
       <InstallBanner />
-    </>
+    </Sentry.ErrorBoundary>
   );
 }

@@ -1,6 +1,6 @@
 // CHANGE THIS to the email address students should write to
 export const SUPPORT_EMAIL = "campusly.support@gmail.com";
-export const LAST_UPDATED = "10 November 2026";
+export const LAST_UPDATED = "12 November 2026";
 
 export const PAGES = {
   terms: {
@@ -140,9 +140,10 @@ export const PAGES = {
           "Vercel: hosts the website.",
           "Cloudflare: a security check that tells humans from bots.",
           "Google: sign-in, if you choose it.",
+          "Sentry: receives automatic error reports when the app crashes, such as the page you were on, your browser type and the error message. We set it up not to send your messages, photos or profile details.",
         ],
         p: [
-          "They handle data only to provide these services. Your data may be processed in countries outside Nigeria, including Ireland and the United States.",
+          "They handle data only to provide these services. Your data may be processed in countries outside Nigeria, including Ireland, Germany and the United States.",
         ],
       },
       {
