@@ -1,6 +1,6 @@
 // CHANGE THIS to the email address students should write to
 export const SUPPORT_EMAIL = "campusly.support@gmail.com";
-export const LAST_UPDATED = "12 November 2026";
+export const LAST_UPDATED = "13 November 2026";
 
 export const PAGES = {
   terms: {
@@ -151,7 +151,7 @@ export const PAGES = {
         list: [
           "Your account data stays until you delete your account.",
           "When you delete your account, we delete your profile, photos, voice notes, messages, likes, event plans and compliments.",
-          "We keep a record that an account existed: your email and phone number in scrambled (hashed) form, your campus, how you signed up, and when you signed up and deleted. We use it to count registrations and to stop one email or phone number being used for two active accounts.",
+          "We keep a record that an account existed: your campus, how you signed up, and when you signed up and deleted. It also holds a scrambled version of your email and phone number, made with a secret key that is stored separately from the database, so it can't be turned back into your real details. We use it to count registrations and to stop one email or phone number being used for two active accounts.",
           "Reports are kept as long as we need them for safety, normally no longer than 12 months after they are closed, even if an account is deleted.",
           "Our providers may keep backups for a short time before they are overwritten.",
         ],
