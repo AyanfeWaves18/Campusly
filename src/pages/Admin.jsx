@@ -44,6 +44,13 @@ const emptyForm = (uni) => ({
   description: "",
 });
 
+// The date a closed report is deleted automatically: 12 months after it was closed
+const plusYear = (t) => {
+  const d = new Date(t);
+  d.setFullYear(d.getFullYear() + 1);
+  return d;
+};
+
 const when = (t) =>
   new Date(t).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -488,6 +495,13 @@ export default function Admin() {
                   {formatWhen(new Date(r.created_at).getTime())}
                 </div>
                 {r.note && <p>"{r.note}"</p>}
+
+                                {r.closed_at && (
+                  <div className="ev-meta">
+                    Closed {new Date(r.closed_at).toLocaleDateString()}. Deleted automatically on{" "}
+                    {plusYear(r.closed_at).toLocaleDateString()}.
+                  </div>
+                )}
 
                 <div className="ad-row-actions">
                   {r.reported_name && (
