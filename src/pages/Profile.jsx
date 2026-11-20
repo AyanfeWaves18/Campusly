@@ -15,6 +15,8 @@ import { saveProfileToCloud } from "../lib/profile.js";
 import { addPhoto, loadPhotoUrls, removePhoto as removePhotoFromCloud, MAX_PHOTOS } from "../lib/photos.js";
 import "./Inner.css";
 
+const ANY = "Any department";
+
 export default function Profile() {
   const toast = useToast();
   const [user, setUser] = useState(() => getUser() || {});
@@ -76,6 +78,18 @@ export default function Profile() {
     });
   }
 
+  // The departments you'd like to meet. "Any department" clears the others, and picking one removes it.
+  const prefs = draft.deptPrefs?.length ? draft.deptPrefs : [ANY];
+  function toggleDept(dept) {
+    if (dept === ANY) {
+      setDraft({ ...draft, deptPrefs: [ANY] });
+      return;
+    }
+    const without = prefs.filter((d) => d !== ANY);
+    const next = without.includes(dept) ? without.filter((d) => d !== dept) : [...without, dept];
+    setDraft({ ...draft, deptPrefs: next.length ? next : [ANY] });
+  }
+
   // Opens the editor (if it isn't open already) and points at one part of it
   function startEdit(focus) {
     if (!editing) {
@@ -113,6 +127,7 @@ export default function Profile() {
       bio: draft.bio || "",
       interests: draft.interests || [],
       prompts: draft.prompts || {},
+      deptPrefs: prefs,
     });
     setSaving(false);
     if (error) {
@@ -218,6 +233,20 @@ export default function Profile() {
                     onClick={() => toggleInterest(i)}
                   >
                     {i}
+                  </button>
+                ))}
+              </div>
+
+              <label>Departments you'd like to meet</label>
+              <div className="au-chips" id="pf-depts">
+                {[ANY, ...departments].map((d) => (
+                  <button
+                    type="button"
+                    key={d}
+                    className={`au-chip ${prefs.includes(d) ? "on" : ""}`}
+                    onClick={() => toggleDept(d)}
+                  >
+                    {d}
                   </button>
                 ))}
               </div>
