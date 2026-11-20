@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useToast } from "./Toast.jsx";
-import { createInvite, listInvites, setInviteActive } from "../lib/admin.js";
+import {
+  createInvite,
+  fetchSignupRule,
+  listInvites,
+  setInviteActive,
+  setRequireInvite,
+} from "../lib/admin.js";
 
 const statusOf = (r) => {
   if (!r.active) return "Off";
@@ -29,6 +35,8 @@ export default function AdminInvites() {
   const [rows, setRows] = useState(null);
   const [form, setForm] = useState({ label: "", max: "20", days: "" });
   const [busy, setBusy] = useState(false);
+  const [required, setRequired] = useState(null); // null = still loading
+  const [savingRule, setSavingRule] = useState(false);
 
   const load = useCallback(async () => {
     const res = await listInvites();
@@ -39,7 +47,27 @@ export default function AdminInvites() {
 
   useEffect(() => {
     load();
+    fetchSignupRule().then((r) => setRequired(r.required));
   }, [load]);
+
+  async function flip() {
+    const next = !required;
+    const ok = window.confirm(
+      next
+        ? "Require an invite code to sign up?\n\nNew people will need a valid code from a friend or from you. People who already have an account are not affected."
+        : "Let people sign up without a code?\n\nAnyone will be able to create an account. Codes still work, and still show who invited whom."
+    );
+    if (!ok) return;
+    setSavingRule(true);
+    const res = await setRequireInvite(next);
+    setSavingRule(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    setRequired(next);
+    toast(next ? "Sign-up now needs an invite code" : "Sign-up no longer needs a code");
+  }
 
   async function create(e) {
     e.preventDefault();
@@ -83,6 +111,29 @@ export default function AdminInvites() {
 
   return (
     <>
+      <div className="in-card" style={{ marginBottom: 18 }}>
+        <h2>Require an invite code to sign up</h2>
+        <label className="in-toggle">
+          <span>
+            {required === null
+              ? "Loading..."
+              : required
+              ? "On: new people need a valid code"
+              : "Off: anyone can sign up, with or without a code"}
+          </span>
+          <input
+            type="checkbox"
+            checked={!!required}
+            disabled={required === null || savingRule}
+            onChange={flip}
+          />
+        </label>
+        <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "8px 0 0" }}>
+          Everyone's own code is in Settings → Invite friends, and the group codes below work too.
+          People who already have an account are never affected.
+        </p>
+      </div>
+
       <form className="in-card" onSubmit={create} style={{ marginBottom: 18 }}>
         <h2>Create an invite code</h2>
 
@@ -123,7 +174,7 @@ export default function AdminInvites() {
       ) : rows.length === 0 ? (
         <div className="empty">
           <i className="ti ti-ticket"></i>
-          <h3>No codes yet</h3>
+          <h3>No group codes yet</h3>
           <p>Create one above, then copy its link and send it to people you trust.</p>
         </div>
       ) : (

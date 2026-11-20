@@ -62,6 +62,8 @@ const ACTIONS = {
        create_invite: "created the invite code",
      enable_invite: "switched on the invite code",
      disable_invite: "switched off the invite code",
+     require_invite_on: "turned on",
+     require_invite_off: "turned off",
 };
 
 /* One person: their details, photos, and the suspend button */

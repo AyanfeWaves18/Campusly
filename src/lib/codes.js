@@ -13,3 +13,9 @@ export async function checkInvite(code) {
   const { data, error } = await supabase.rpc("check_invite", { c });
   return !error && data === true;
 }
+
+// Is a code required to sign up right now? (the admin switch)
+export async function getRequireInvite() {
+  const { data, error } = await supabase.rpc("get_signup_rules");
+  return !error && data === true;
+}

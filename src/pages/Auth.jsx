@@ -7,7 +7,7 @@ import Logo from "../components/Logo.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { signInUser, signInWithGoogle, signUpUser } from "../lib/auth.js";
-import { checkInvite, normCode } from "../lib/codes.js";
+import { checkInvite, getRequireInvite, normCode } from "../lib/codes.js";
 import {
   departments,
   levels,
@@ -21,8 +21,13 @@ import "./Auth.css";
 const digits = (s) => (s || "").replace(/\D/g, "");
 
 const AGE_ERROR = "Please confirm you're 18 or older and accept the Terms and Privacy Policy.";
+const NEED_CODE = "Enter an invite code to create an account. Ask a friend who is already on Campusly.";
 
-const BAD_CODE = "We couldn't find that invite code. Check it, or clear the box to continue without one.";
+// The message for a code that doesn't work depends on whether a code is required right now
+const badCode = (required) =>
+  required
+    ? "That invite code isn't valid, or it has been used up. Ask a friend for theirs."
+    : "We couldn't find that invite code. Check it, or clear the box to continue without one.";
 
 function PasswordField({ value, onChange, placeholder, show, setShow, name = "password" }) {
   return (
@@ -97,6 +102,7 @@ export default function Auth({ mode }) {
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaReset, setCaptchaReset] = useState(0);
   const [agree, setAgree] = useState(false);
+  const [needCode, setNeedCode] = useState(false); // is a code required right now? (the admin switch)
   const [invite, setInvite] = useState(() => normCode(urlCode || load("invite_code", "")));
 
   const [form, setForm] = useState({
@@ -119,6 +125,11 @@ export default function Auth({ mode }) {
   useEffect(() => {
     if (!uni) navigate("/", { replace: true });
   }, [uni, navigate]);
+
+  // Ask whether a code is required right now
+  useEffect(() => {
+    if (mode === "signup") getRequireInvite().then(setNeedCode);
+  }, [mode]);
 
   if (!uni) return null;
 
@@ -158,16 +169,19 @@ export default function Auth({ mode }) {
         setError(AGE_ERROR);
         return;
       }
-      
-         setBusy(true);
-         if (invite) {
-           const ok = await checkInvite(invite);
-           if (!ok) {
-             setBusy(false);
-             setError(BAD_CODE);
-             return;
-           }
-         }
+      if (needCode && !invite) {
+        setError(NEED_CODE);
+        return;
+      }
+      setBusy(true);
+      if (invite) {
+        const ok = await checkInvite(invite);
+        if (!ok) {
+          setBusy(false);
+          setError(badCode(needCode));
+          return;
+        }
+      }
     } else {
       setBusy(true);
     }
@@ -202,7 +216,7 @@ export default function Auth({ mode }) {
       setError(pwError);
       return;
     }
-    if (!invite) {
+    if (needCode && !invite) {
       setError(NEED_CODE);
       return;
     }
@@ -210,12 +224,14 @@ export default function Auth({ mode }) {
       setError(AGE_ERROR);
       return;
     }
-    setBusy(true);
-    const ok = await checkInvite(invite);
-    setBusy(false);
-    if (!ok) {
-      setError(BAD_CODE);
-      return;
+    if (invite) {
+      setBusy(true);
+      const ok = await checkInvite(invite);
+      setBusy(false);
+      if (!ok) {
+        setError(badCode(needCode));
+        return;
+      }
     }
     setError("");
     setStep(2);
@@ -237,7 +253,7 @@ export default function Auth({ mode }) {
     setBusy(false);
     if (err) {
       spendCaptcha();
-      if (field) setStep(1); // email or phone problem: go back to where they can fix it
+      if (field) setStep(1); // email, phone or code problem: go back to where they can fix it
       setError(err);
       return;
     }
@@ -305,7 +321,7 @@ export default function Auth({ mode }) {
               />
               <PwRules pw={form.password} />
 
-                 <label>Invite code (optional)</label>
+              <label>{needCode ? "Invite code (required)" : "Invite code (optional)"}</label>
               <input
                 name="invite"
                 placeholder="ABCD-1234"
@@ -315,7 +331,9 @@ export default function Auth({ mode }) {
                 onChange={(e) => { setInvite(normCode(e.target.value)); setError(""); }}
               />
               <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: "-6px 0 14px" }}>
-                  Got a code from a friend? Enter it here. You can leave this empty. Ask the person who told you about it.
+                {needCode
+                  ? "Campusly is invite-only right now. Ask a friend who is already on it for their code."
+                  : "Got a code from a friend? Enter it here. You can leave this empty."}
               </p>
 
               <label className="au-agree">

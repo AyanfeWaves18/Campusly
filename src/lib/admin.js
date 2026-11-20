@@ -171,3 +171,18 @@ export async function fetchAdminPilot() {
   const row = Array.isArray(data) ? data[0] : data;
   return { pilot: row };
 }
+
+
+/* ---------- The sign-up switch ---------- */
+
+export async function fetchSignupRule() {
+  const { data, error } = await supabase.rpc("get_signup_rules");
+  if (error) return { required: false };
+  return { required: data === true };
+}
+
+export async function setRequireInvite(on) {
+  const { error } = await supabase.rpc("admin_set_require_invite", { on_off: on });
+  if (error) return { error: "We couldn't change that. Please try again." };
+  return { ok: true };
+}

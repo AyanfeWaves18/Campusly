@@ -5,7 +5,7 @@ import Logo from "../components/Logo.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { supabase } from "../lib/supabase.js";
 import { completeMyProfile, syncUser } from "../lib/auth.js";
-import { checkInvite, normCode } from "../lib/codes.js";
+import { checkInvite, getRequireInvite, normCode } from "../lib/codes.js";
 import { load, save, setLoggedIn } from "../utils/storage.js";
 import {
   departments,
@@ -40,6 +40,10 @@ export default function Onboarding() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [agree, setAgree] = useState(alreadyConfirmed);
+  const [needCode, setNeedCode] = useState(false);
+     useEffect(() => {
+       getRequireInvite().then(setNeedCode);
+     }, []);
   const [invite, setInvite] = useState(() => normCode(load("invite_code", "")));
   const [form, setForm] = useState({
     name: "",
@@ -111,8 +115,11 @@ export default function Onboarding() {
       return setError("Fill in your gender, department, level, and what you're looking for.");
     }
     if (form.interests.length === 0) return setError("Pick at least one interest.");
-           if (invite && !(await checkInvite(invite))) {
-         return setError("We couldn't find that invite code. Check it, or clear the box to continue without one.");
+    if (needCode && !invite) {
+       return setError("An invite code is needed to join right now. Ask a friend for theirs.");
+       }
+    if (invite && !(await checkInvite(invite))) {
+       return setError("We couldn't find that invite code. Check it, or clear the box to continue without one.");
        }
     if (!agree) {
       return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
@@ -228,7 +235,7 @@ export default function Onboarding() {
               onChange={update}
             />
 
-            <label>Invite code (optional)</label>
+               <label>{needCode ? "Invite code (required)" : "Invite code (optional)"}</label>
             <input
               placeholder="ABCD-1234"
               autoCapitalize="characters"

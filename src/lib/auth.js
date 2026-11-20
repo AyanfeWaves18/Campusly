@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { checkInvite, getRequireInvite } from "./codes.js";
 import { saveUser, setLoggedIn } from "../utils/storage.js";
 import { SUPPORT_EMAIL } from "../utils/legal.js";
 
@@ -91,6 +92,13 @@ export async function syncUser() {
     }
     // The database refuses a second account with the same phone number
     if (msg.includes("database error")) {
+           // With codes required, a refused sign-up may be about the code, not the phone number
+       if ((await getRequireInvite()) && !(await checkInvite(invite))) {
+         return {
+           error: "That invite code isn't valid, or it has been used up. Ask for a new one.",
+           field: "invite",
+         };
+       }
       return { error: "An account with this phone number already exists. Log in instead.", field: "phone" };
     }
     if (msg.includes("already")) {
@@ -177,6 +185,9 @@ export async function completeMyProfile(f) {
     if (msg === "invalid invite") {
       return { error: "That invite code isn't valid, or it has been used up. Ask for a new one." };
     }
+    if (msg === "invite required") {
+       return { error: "An invite code is needed to join right now. Ask a friend for theirs." };
+       }
     if (msg === "invalid phone") return { error: "Enter a valid phone number.", field: "phone" };
     if (msg === "invalid campus") return { error: "Choose your university." };
     if (msg !== "already complete") {
