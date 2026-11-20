@@ -21,6 +21,7 @@ import {
   setReportStatus,
 } from "../lib/admin.js";
 import AdminInvites from "../components/AdminInvites.jsx";
+import AdminPilot from "../components/AdminPilot.jsx";
 import "../components/Modals.css";
 import "./Inner.css";
 import "./Pages.css";
@@ -396,6 +397,7 @@ export default function Admin() {
           <button className={tab === "invites" ? "on" : ""} onClick={() => setTab("invites")}>Invites</button>
         </div>
 
+                {tab === "overview" && <AdminPilot />}
         {/* OVERVIEW */}
         {tab === "overview" && (
           <div className="ad-stats">

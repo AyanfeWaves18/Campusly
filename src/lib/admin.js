@@ -161,3 +161,13 @@ export async function setInviteActive(code, active) {
   if (error) return { error: "We couldn't change that code." };
   return { ok: true };
 }
+
+
+/* ---------- Pilot scoreboard ---------- */
+
+export async function fetchAdminPilot() {
+  const { data, error } = await supabase.rpc("admin_pilot");
+  if (error) return { error: "We couldn't load the pilot numbers." };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { pilot: row };
+}
