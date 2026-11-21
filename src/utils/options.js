@@ -30,7 +30,7 @@ export const departments = [
   "Other",
 ];
 
-export const levels = ["100 level", "200 level", "300 level", "400 level", "500 level"];
+export const levels = ["100 level", "200 level", "300 level", "400 level", "500 level", "600 level"];
 export const genders = ["Male", "Female"];
 export const interestedInOptions = ["Men", "Women"];
 export const lookingForOptions = ["Dating", "Friends", "Both"];
