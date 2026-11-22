@@ -4,6 +4,7 @@ import Captcha from "../components/Captcha.jsx";
 import Footer from "../components/Footer.jsx";
 import ForgotForm from "../components/ForgotForm.jsx";
 import Logo from "../components/Logo.jsx";
+import UniPicker from "../components/UniPicker.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { signInUser, signInWithGoogle, signUpUser } from "../lib/auth.js";
@@ -92,8 +93,9 @@ export default function Auth({ mode }) {
   const urlCode = normCode(new URLSearchParams(location.search).get("code"));
   if (urlCode) save("invite_code", urlCode);
 
-  // The university must be chosen on the landing page first
-  const uni = location.state?.uni || load("uni", "") || getUser()?.uni || "";
+  // The university comes from the landing page, and can be changed on step 2 of sign-up
+  const [uni, setUni] = useState(() => location.state?.uni || load("uni", "") || getUser()?.uni || "");
+  const [showUni, setShowUni] = useState(false);
 
   const [step, setStep] = useState(1);
   const [show, setShow] = useState(false);
@@ -374,6 +376,35 @@ export default function Auth({ mode }) {
                   <Chip key={x} on={form.gender === x} onClick={() => setField("gender", x)}>{x}</Chip>
                 ))}
               </div>
+
+              <label htmlFor="au-uni">University</label>
+              <input
+                id="au-uni"
+                readOnly
+                value={uni}
+                placeholder="Choose your university"
+                aria-expanded={showUni}
+                style={{ cursor: "pointer" }}
+                onClick={() => setShowUni(!showUni)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setShowUni(!showUni);
+                  }
+                }}
+              />
+              {showUni && (
+                <div className="au-uni-box">
+                  <UniPicker
+                    onPick={(name) => {
+                      setUni(name);
+                      save("uni", name);
+                      setShowUni(false);
+                      setError("");
+                    }}
+                  />
+                </div>
+              )}
 
               <label>Department</label>
               <select name="department" value={form.department} onChange={update}>
