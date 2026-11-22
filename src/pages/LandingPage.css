@@ -284,3 +284,17 @@ button.lp-pill {
   font-size: 1rem;
   font-family: inherit;
 }
+
+/* University picker inside the dropdown */
+.lp-menu .up {
+  --text: #2b1b6b;
+  --card: #ffffff;
+  --border: #e3dcf5;
+  --muted: #5b4e8a;
+  padding: 8px;
+}
+.lp-dd-btn > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

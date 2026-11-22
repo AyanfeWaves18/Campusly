@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer.jsx";
 import Logo from "../components/Logo.jsx";
+import UniPicker from "../components/UniPicker.jsx";
 import { ChevronIcon } from "../components/Icons.jsx";
 import { save } from "../utils/storage.js";
 import "./LandingPage.css";
 import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
-
-const universities = [{ name: "Crawford University" }];
 
 const steps = [
   { icon: "ti-school", color: "#7F77DD", title: "1. Pick your campus", text: "Choose your university and join in a minute." },
@@ -62,7 +61,7 @@ export default function LandingPage() {
             Meet someone
             <span>on your campus.</span>
           </h1>
-             <p>Real people, real vibes, a few minutes from you.</p>
+          <p>Real people, real vibes, a few minutes from you.</p>
 
           <div className="lp-picker" id="join">
             <div className="lp-dd" ref={ref}>
@@ -80,22 +79,13 @@ export default function LandingPage() {
 
               {open && (
                 <div className="lp-menu">
-                  {universities.map((u) => (
-                    <button
-                      type="button"
-                      key={u.name}
-                      className="lp-menu-item"
-                      onClick={() => {
-                        setUni(u.name);
-                        setMissing(false);
-                        setOpen(false);
-                      }}
-                    >
-                      {u.name}
-                      {uni === u.name && " ✓"}
-                    </button>
-                  ))}
-                  <div className="lp-menu-note">More universities coming soon</div>
+                  <UniPicker
+                    onPick={(name) => {
+                      setUni(name);
+                      setMissing(false);
+                      setOpen(false);
+                    }}
+                  />
                 </div>
               )}
             </div>
