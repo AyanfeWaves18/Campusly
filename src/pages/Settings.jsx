@@ -4,6 +4,7 @@ import AppLayout from "../components/AppLayout.jsx";
 import Captcha from "../components/Captcha.jsx";
 import { useToast } from "../components/Toast.jsx";
 import InviteFriends from "../components/InviteFriends.jsx";
+import NotifyCard from "../components/NotifyCard.jsx";
 import { supabase } from "../lib/supabase.js";
 import { removeAllMyPhotos } from "../lib/photos.js";
 import { removeAllMyVoiceNotes } from "../lib/voice.js";
@@ -146,6 +147,7 @@ export default function Settings() {
   return (
     <AppLayout>
       <div className="in-wrap">
+                  <NotifyCard />
         <form className="in-card" onSubmit={saveName}>
           <h2>Account details</h2>
           <label>Full name</label>

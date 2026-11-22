@@ -5,11 +5,13 @@ import { DotsIcon, FilterIcon } from "../components/Icons.jsx";
 import { ReportModal, ComplimentModal, Tour } from "../components/Modals.jsx";
 import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
 import { useToast } from "../components/Toast.jsx";
+import { NotifyBanner } from "../components/NotifyCard.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { completeness } from "../utils/data.js";
 import { departments, levels, genders } from "../utils/options.js";
 import { fetchPeople, fetchMyOpen, setOtherCampuses } from "../lib/people.js";
 import { fetchMyLikes, likePerson, unlikePerson } from "../lib/likes.js";
+import { syncPush } from "../lib/push.js";
 import "./Feed.css";
 
 const COLORS = [
@@ -83,6 +85,7 @@ export default function Feed() {
 
   useEffect(() => {
     (async () => {
+      syncPush(me.id); // keeps this phone connected for notifications, if they are on
       const open = await fetchMyOpen(me.id);
       setOpen(open);
       await loadPeople(true, scopeRef.current);
@@ -197,6 +200,7 @@ export default function Feed() {
         )}
 
         <div className="fd-mode">
+                  <NotifyBanner />
           <button className={scope === "campus" ? "on" : ""} onClick={() => pickScope("campus")}>
             My campus
           </button>

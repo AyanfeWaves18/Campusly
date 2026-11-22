@@ -1,0 +1,136 @@
+.nt-text {
+  margin: 0 0 14px;
+  color: var(--muted, #8a8794);
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.nt-btn {
+  min-height: 44px;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 999px;
+  background: #ff3d81;
+  color: #2b1b6b;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nt-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.nt-link {
+  min-height: 44px;
+  padding: 0 6px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.nt-rows {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+.nt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--line, rgba(128, 128, 128, 0.25));
+}
+.nt-row:last-child {
+  border-bottom: none;
+}
+
+.nt-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+/* On / off switch */
+.nt-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 60px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+.nt-switch::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 7px;
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
+  background: #7a7590;
+  transition: background 0.2s;
+}
+.nt-switch::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+}
+.nt-switch.on::before {
+  background: #ff3d81;
+}
+.nt-switch.on::after {
+  transform: translateX(22px);
+}
+.nt-switch:focus-visible {
+  outline: 2px solid #ff3d81;
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+/* Banner on the feed */
+.nt-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, rgba(128, 128, 128, 0.25));
+  border-radius: 14px;
+  background: var(--card, transparent);
+}
+.nt-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 0.95rem;
+}
+.nt-banner-text span {
+  color: var(--muted, #8a8794);
+  font-size: 0.88rem;
+}
+.nt-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
