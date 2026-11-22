@@ -31,18 +31,31 @@ async function withFirstPhotos(people) {
   return people.map((p) => ({ ...p, photoUrl: p.photos[0] ? urls[p.photos[0]] || null : null }));
 }
 
-// People you are allowed to see. The database decides who that is
-// (same campus, and not hidden), so this only asks for the list.
-export async function fetchPeople(myId) {
+// People you are allowed to see. The database decides who that is (same campus, or another
+// campus where you both switched Other campuses on, and never hidden or blocked people).
+// scope "campus" keeps only your own university; scope "other" keeps only the others.
+export async function fetchPeople(myId, myUni, scope = "campus") {
   if (!myId) return { people: [] };
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(FIELDS)
-    .neq("id", myId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+  let query = supabase.from("profiles").select(FIELDS).neq("id", myId);
+  if (myUni) query = scope === "other" ? query.neq("uni", myUni) : query.eq("uni", myUni);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(100);
   if (error) return { error: "We couldn't load people. Pull down to try again." };
   return { people: await withFirstPhotos((data || []).map(shape)) };
+}
+
+// Have I switched on "Other campuses"?
+export async function fetchMyOpen(myId) {
+  if (!myId) return false;
+  const { data, error } = await supabase.rpc("my_open");
+  if (error) return false;
+  return !!data;
+}
+
+// Switch "Other campuses" on or off for yourself
+export async function setOtherCampuses(on) {
+  const { error } = await supabase.rpc("set_other_campuses", { p_on: !!on });
+  if (error) return { error: "We couldn't change that. Please try again." };
+  return {};
 }
 
 // One person, with all their photos. Returns { error } if they don't exist or you can't see them.

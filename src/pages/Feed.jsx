@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import { DotsIcon, FilterIcon } from "../components/Icons.jsx";
@@ -8,7 +8,7 @@ import { useToast } from "../components/Toast.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { completeness } from "../utils/data.js";
 import { departments, levels, genders } from "../utils/options.js";
-import { fetchPeople } from "../lib/people.js";
+import { fetchPeople, fetchMyOpen, setOtherCampuses } from "../lib/people.js";
 import { fetchMyLikes, likePerson, unlikePerson } from "../lib/likes.js";
 import "./Feed.css";
 
@@ -35,8 +35,10 @@ export default function Feed() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [scope, setScope] = useState(() => load("feed_scope", "campus"));
+  const [openToOthers, setOpenToOthers] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const [mode, setMode] = useState(() => load("mode", ""));
-  const [filters, setFilters] = useState({ department: "", level: "", gender: "" });
+  const [filters, setFilters] = useState({ department: "", level: "", gender: "", uni: "" });
   const [showFilters, setShowFilters] = useState(false);
   const [blocked, setBlocked] = useState(() => load("blocked", []));
   const [seed, setSeed] = useState(0);
@@ -44,9 +46,16 @@ export default function Feed() {
   const [compliment, setCompliment] = useState(null);
   const [tour, setTour] = useState(false);
 
-  async function loadPeople(showSkeleton) {
+  // The newest scope, so refreshing and reloading always use the one on screen
+  const scopeRef = useRef(scope);
+  // Counts loads, so a slow answer for a campus you already left never replaces the one on screen
+  const reqId = useRef(0);
+
+  async function loadPeople(showSkeleton, s = scopeRef.current) {
+    const id = ++reqId.current;
     if (showSkeleton) setLoading(true);
-    const [res, likesRes] = await Promise.all([fetchPeople(me.id), fetchMyLikes()]);
+    const [res, likesRes] = await Promise.all([fetchPeople(me.id, me.uni, s), fetchMyLikes()]);
+    if (id !== reqId.current) return; // a newer load has started, so drop this one
     if (res.error) {
       setLoadError(res.error);
     } else {
@@ -58,9 +67,23 @@ export default function Feed() {
   }
 
   useEffect(() => {
-    loadPeople(true).then(() => {
+    (async () => {
+      const openPromise = fetchMyOpen(me.id);
+      let s = scopeRef.current;
+      // Other campuses only works once you have switched it on, so fall back if it isn't
+      if (s === "other") {
+        const open = await openPromise;
+        if (!open) {
+          s = "campus";
+          scopeRef.current = "campus";
+          setScope("campus");
+          save("feed_scope", "campus");
+        }
+      }
+      await loadPeople(true, s);
+      setOpenToOthers(await openPromise);
       if (!load("tour_done", false)) setTour(true);
-    });
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -73,6 +96,11 @@ export default function Feed() {
   }
   const { pull, refreshing } = usePullToRefresh(refresh);
 
+  const uniOptions = useMemo(
+    () => [...new Set(people.map((p) => p.uni).filter(Boolean))].sort(),
+    [people]
+  );
+
   const list = useMemo(() => {
     const out = people.filter(
       (p) =>
@@ -80,17 +108,52 @@ export default function Feed() {
         (!mode || p.lookingFor === mode || p.lookingFor === "Both") &&
         (!filters.department || p.department === filters.department) &&
         (!filters.level || p.level === filters.level) &&
-        (!filters.gender || p.gender === filters.gender)
+        (!filters.gender || p.gender === filters.gender) &&
+        (!filters.uni || p.uni === filters.uni)
     );
     return seed > 0 ? [...out].sort(() => Math.random() - 0.5) : out;
   }, [people, blocked, mode, filters, seed]);
 
-  const activeCount = [filters.department, filters.level, filters.gender, mode].filter(Boolean).length;
+  const activeCount = [filters.department, filters.level, filters.gender, filters.uni, mode].filter(Boolean).length;
 
-  function pickScope(v) {
+  // Switching to Other campuses also makes you visible to people there who switched it on too
+  async function pickScope(v) {
+    if (v === scopeRef.current || switching) return;
+    if (v === "other" && !openToOthers) {
+      setSwitching(true);
+      const res = await setOtherCampuses(true);
+      setSwitching(false);
+      if (res.error) {
+        toast(res.error, "err");
+        return;
+      }
+      setOpenToOthers(true);
+    }
+    scopeRef.current = v;
     setScope(v);
     save("feed_scope", v);
+    setFilters((f) => ({ ...f, uni: "" }));
+    loadPeople(true, v);
   }
+
+  async function stopShowing() {
+    if (switching) return;
+    setSwitching(true);
+    const res = await setOtherCampuses(false);
+    setSwitching(false);
+    if (res.error) {
+      toast(res.error, "err");
+      return;
+    }
+    setOpenToOthers(false);
+    scopeRef.current = "campus";
+    setScope("campus");
+    save("feed_scope", "campus");
+    setFilters((f) => ({ ...f, uni: "" }));
+    loadPeople(true, "campus");
+    toast("You're hidden from other campuses.");
+  }
+
   function pickMode(v) {
     setMode(v);
     save("mode", v);
@@ -99,7 +162,7 @@ export default function Feed() {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   }
   function clearAll() {
-    setFilters({ department: "", level: "", gender: "" });
+    setFilters({ department: "", level: "", gender: "", uni: "" });
     pickMode("");
   }
 
@@ -118,7 +181,7 @@ export default function Feed() {
     }
     if (!wasLiked) {
       if (res.match) toast(`It's a match with ${p.name}!`, "match");
-      else    toast("Liked! You can send up to 3 free messages.");
+      else toast("Liked! You can send up to 3 free messages.");
     }
   }
 
@@ -139,158 +202,168 @@ export default function Feed() {
         )}
 
         <div className="fd-mode">
-          <button className={scope === "campus" ? "on" : ""} onClick={() => pickScope("campus")}>
+          <button className={scope === "campus" ? "on" : ""} onClick={() => pickScope("campus")} disabled={switching}>
             My campus
           </button>
-          <button className={scope === "other" ? "on" : ""} onClick={() => pickScope("other")}>
+          <button className={scope === "other" ? "on" : ""} onClick={() => pickScope("other")} disabled={switching}>
             Other campuses
           </button>
         </div>
 
-        {scope === "other" ? (
-          <div className="fd-soon">
-            <i className="ti ti-world" aria-hidden="true"></i>
-            <h3>This feature is coming soon</h3>
-            <p>You'll be able to meet people from other universities once more campuses join Campusly.</p>
-            <button onClick={() => pickScope("campus")}>Back to my campus</button>
+        {scope === "other" && (
+          <div className="fd-note">
+            <span>You're visible to people on other campuses who are also here.</span>
+            <button type="button" onClick={stopShowing} disabled={switching}>Stop showing me</button>
+          </div>
+        )}
+
+        <div className="fd-bar">
+          <button
+            className={`fd-filter-btn ${showFilters ? "on" : ""}`}
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <FilterIcon size={18} /> Filters
+            {activeCount > 0 && <b className="fd-count">{activeCount}</b>}
+          </button>
+          {activeCount > 0 && (
+            <button className="fd-clear" onClick={clearAll}>Clear</button>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="fd-panel">
+            <div className="fd-mode">
+              {[["", "All"], ["Dating", "Dates"], ["Friends", "Friends"]].map(([v, l]) => (
+                <button key={l} className={mode === v ? "on" : ""} onClick={() => pickMode(v)}>{l}</button>
+              ))}
+            </div>
+            <div className="fd-filters">
+              {scope === "other" && (
+                <select name="uni" value={filters.uni} onChange={setFilter}>
+                  <option value="">University</option>
+                  {uniOptions.map((u) => <option key={u}>{u}</option>)}
+                </select>
+              )}
+              <select name="department" value={filters.department} onChange={setFilter}>
+                <option value="">Department</option>
+                {departments.map((d) => <option key={d}>{d}</option>)}
+              </select>
+              <select name="level" value={filters.level} onChange={setFilter}>
+                <option value="">Level</option>
+                {levels.map((l) => <option key={l}>{l}</option>)}
+              </select>
+              <select name="gender" value={filters.gender} onChange={setFilter}>
+                <option value="">Gender</option>
+                {genders.map((g) => <option key={g}>{g}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="fd-list">
+            {[1, 2, 3].map((n) => (
+              <div className="fd-card" key={n}>
+                <div className="sk sk-photo"></div>
+                <div className="fd-body">
+                  <div className="sk sk-line w60"></div>
+                  <div className="sk sk-line w90"></div>
+                  <div className="sk sk-line w40"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : loadError ? (
+          <div className="empty">
+            <i className="ti ti-wifi-off"></i>
+            <h3>Couldn't load people</h3>
+            <p>{loadError}</p>
+            <a href="/feed" onClick={(e) => { e.preventDefault(); loadPeople(true); }}>Try again</a>
+          </div>
+        ) : people.length === 0 ? (
+          scope === "other" ? (
+            <div className="empty">
+              <i className="ti ti-world"></i>
+              <h3>No one from other campuses yet</h3>
+              <p>People show up here once they switch on Other campuses too. Check back soon.</p>
+            </div>
+          ) : (
+            <div className="empty">
+              <i className="ti ti-users"></i>
+              <h3>You're early</h3>
+              <p>No one else from your campus has joined yet. Invite your friends to Campusly.</p>
+            </div>
+          )
+        ) : list.length === 0 ? (
+          <div className="empty">
+            <i className="ti ti-mood-empty"></i>
+            <h3>No one matches these filters</h3>
+            <p>Try clearing a filter.</p>
           </div>
         ) : (
-          <>
-            <div className="fd-bar">
-              <button
-                className={`fd-filter-btn ${showFilters ? "on" : ""}`}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <FilterIcon size={18} /> Filters
-                {activeCount > 0 && <b className="fd-count">{activeCount}</b>}
-              </button>
-              {activeCount > 0 && (
-                <button className="fd-clear" onClick={clearAll}>Clear</button>
-              )}
-            </div>
-
-            {showFilters && (
-              <div className="fd-panel">
-                <div className="fd-mode">
-                  {[["", "All"], ["Dating", "Dates"], ["Friends", "Friends"]].map(([v, l]) => (
-                    <button key={l} className={mode === v ? "on" : ""} onClick={() => pickMode(v)}>{l}</button>
-                  ))}
-                </div>
-                <div className="fd-filters">
-                  <select name="department" value={filters.department} onChange={setFilter}>
-                    <option value="">Department</option>
-                    {departments.map((d) => <option key={d}>{d}</option>)}
-                  </select>
-                  <select name="level" value={filters.level} onChange={setFilter}>
-                    <option value="">Level</option>
-                    {levels.map((l) => <option key={l}>{l}</option>)}
-                  </select>
-                  <select name="gender" value={filters.gender} onChange={setFilter}>
-                    <option value="">Gender</option>
-                    {genders.map((g) => <option key={g}>{g}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="fd-list">
-                {[1, 2, 3].map((n) => (
-                  <div className="fd-card" key={n}>
-                    <div className="sk sk-photo"></div>
-                    <div className="fd-body">
-                      <div className="sk sk-line w60"></div>
-                      <div className="sk sk-line w90"></div>
-                      <div className="sk sk-line w40"></div>
+          <div className="fd-list">
+            {list.map((p) => {
+              const [bg, fg] = colorFor(p.id);
+              const prompt = answered(p);
+              const liked = likes.includes(p.id);
+              return (
+                <article className="fd-card" key={p.id}>
+                  <div
+                    className="fd-photo"
+                    style={{ background: bg, color: fg }}
+                    role="button"
+                    onClick={() => navigate(`/user/${p.id}`)}
+                  >
+                    {p.photoUrl ? (
+                      <img className="fd-img" src={p.photoUrl} alt={p.name} />
+                    ) : (
+                      <span className="fd-initial">{p.name?.[0]}</span>
+                    )}
+                    <button
+                      className="fd-dots"
+                      title="Block or report"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReport(p);
+                      }}
+                      aria-label="Block or report"
+                    >
+                      <DotsIcon size={20} />
+                    </button>
+                  </div>
+                  <div className="fd-body">
+                    <h2 className="fd-name" onClick={() => navigate(`/user/${p.id}`)}>
+                      {p.name}
+                      {p.verified && <i className="ti ti-rosette-discount-check vb" title="Verified"></i>}
+                    </h2>
+                    <div className="fd-meta">{p.department} · {p.level}</div>
+                    {p.bio && <p>{p.bio}</p>}
+                    {prompt && (
+                      <div className="fd-prompt">
+                        <small>{prompt[0]}</small>
+                        <div>{prompt[1]}</div>
+                      </div>
+                    )}
+                    <div className="fd-tags">
+                      {p.tags.map((t) => <span key={t}>{t}</span>)}
+                      <span className="fd-campus">{p.uni}</span>
+                    </div>
+                    <div className="fd-actions">
+                      <button className={`fd-like ${liked ? "on" : ""}`} onClick={() => toggleLike(p)}>
+                        <i className="ti ti-heart"></i> {liked ? "Liked" : "Like"}
+                      </button>
+                      <button className="fd-msg" onClick={() => navigate(`/chat/${p.id}`)}>
+                        <i className="ti ti-message"></i> Message
+                      </button>
+                      <button className="fd-ico" onClick={() => setCompliment(p)} aria-label="Send anonymous compliment">
+                        <i className="ti ti-sparkles"></i>
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : loadError ? (
-              <div className="empty">
-                <i className="ti ti-wifi-off"></i>
-                <h3>Couldn't load people</h3>
-                <p>{loadError}</p>
-                <a href="/feed" onClick={(e) => { e.preventDefault(); loadPeople(true); }}>Try again</a>
-              </div>
-            ) : people.length === 0 ? (
-              <div className="empty">
-                <i className="ti ti-users"></i>
-                <h3>You're early</h3>
-                <p>No one else from your campus has joined yet. Invite your friends to Campusly.</p>
-              </div>
-            ) : list.length === 0 ? (
-              <div className="empty">
-                <i className="ti ti-mood-empty"></i>
-                <h3>No one matches these filters</h3>
-                <p>Try clearing a filter.</p>
-              </div>
-            ) : (
-              <div className="fd-list">
-                {list.map((p) => {
-                  const [bg, fg] = colorFor(p.id);
-                  const prompt = answered(p);
-                  const liked = likes.includes(p.id);
-                  return (
-                    <article className="fd-card" key={p.id}>
-                      <div
-                        className="fd-photo"
-                        style={{ background: bg, color: fg }}
-                        role="button"
-                        onClick={() => navigate(`/user/${p.id}`)}
-                      >
-                        {p.photoUrl ? (
-                          <img className="fd-img" src={p.photoUrl} alt={p.name} />
-                        ) : (
-                          <span className="fd-initial">{p.name?.[0]}</span>
-                        )}
-                        <button
-                          className="fd-dots"
-                          title="Block or report"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReport(p);
-                          }}
-                          aria-label="Block or report"
-                        >
-                          <DotsIcon size={20} />
-                        </button>
-                      </div>
-                      <div className="fd-body">
-                        <h2 className="fd-name" onClick={() => navigate(`/user/${p.id}`)}>
-                          {p.name}
-                          {p.verified && <i className="ti ti-rosette-discount-check vb" title="Verified"></i>}
-                        </h2>
-                        <div className="fd-meta">{p.department} · {p.level}</div>
-                        {p.bio && <p>{p.bio}</p>}
-                        {prompt && (
-                          <div className="fd-prompt">
-                            <small>{prompt[0]}</small>
-                            <div>{prompt[1]}</div>
-                          </div>
-                        )}
-                        <div className="fd-tags">
-                          {p.tags.map((t) => <span key={t}>{t}</span>)}
-                          <span className="fd-campus">{p.uni}</span>
-                        </div>
-                        <div className="fd-actions">
-                          <button className={`fd-like ${liked ? "on" : ""}`} onClick={() => toggleLike(p)}>
-                            <i className="ti ti-heart"></i> {liked ? "Liked" : "Like"}
-                          </button>
-                          <button className="fd-msg"    onClick={() => navigate(`/chat/${p.id}`)}>
-                            <i className="ti ti-message"></i> Message
-                          </button>
-                          <button className="fd-ico" onClick={() => setCompliment(p)} aria-label="Send anonymous compliment">
-                            <i className="ti ti-sparkles"></i>
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </>
+                </article>
+              );
+            })}
+          </div>
         )}
       </div>
 

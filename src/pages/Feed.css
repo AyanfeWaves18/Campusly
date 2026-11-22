@@ -305,3 +305,34 @@
   font-size: 1rem;
   cursor: pointer;
 }
+
+/* Other campuses note */
+.fd-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0 0 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.fd-note button {
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fd-mode button:disabled {
+  opacity: 0.6;
+}
