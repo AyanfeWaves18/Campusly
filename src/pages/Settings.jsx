@@ -123,7 +123,7 @@ export default function Settings() {
 
   async function deleteAccount() {
     const ok = window.confirm(
-      "Delete your account?\n\nYour profile, photos, matches and chats will be removed. You can sign up again later with the same email or phone number."
+    "Delete your account?\n\nYour profile, photos, matches and voice notes will be removed. Text messages you already sent stay in the other person's chat, but without your name or photo. You can sign up again later with the same email or phone number."
     );
     if (!ok) return;
     setDeleting(true);

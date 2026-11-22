@@ -9,6 +9,7 @@ import { fetchConversations, fetchRequests, passPerson, subscribeToInbox } from 
 import { fetchMyCompliments, markComplimentsSeen, reportCompliment } from "../lib/compliments.js";
 import { likePerson } from "../lib/likes.js";
 import { fetchPeopleByIds } from "../lib/people.js";
+import { fetchGonePartners } from "../lib/gone.js";
 import "../components/Modals.css";
 import "./Pages.css";
 
@@ -32,7 +33,7 @@ function time(t) {
 
 function PersonAvatar({ person }) {
   const [bg, fg] = colorFor(person.id);
-  return <Avatar photo={person.photoUrl} name={person.name} bg={bg} fg={fg} size={44} />;
+  return <Avatar photo={person.photoUrl} name={person.gone ? "?" : person.name} bg={bg} fg={fg} size={44} />;
 }
 
 // The wording of a ready-made compliment
@@ -126,11 +127,16 @@ function MessagesBody() {
       return;
     }
     const byId = new Map((res.people || []).map((p) => [p.id, p]));
+    // People who deleted their account stay in the list, so the old messages can still be read
+    const missing = c.chats.map((x) => x.partner_id).filter((pid) => !byId.has(pid));
+    const gone = await fetchGonePartners(missing);
+    const personFor = (pid) =>
+      byId.get(pid) || (gone.has(pid) ? { id: pid, name: "Deleted account", photoUrl: null, gone: true } : null);
     setError("");
     setChats(
       c.chats
-        .filter((x) => byId.has(x.partner_id))
-        .map((x) => ({ ...x, person: byId.get(x.partner_id) }))
+        .filter((x) => personFor(x.partner_id))
+        .map((x) => ({ ...x, person: personFor(x.partner_id) }))
         .sort((a, b) => new Date(b.last_at) - new Date(a.last_at))
     );
     setRequests(

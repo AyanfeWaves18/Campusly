@@ -109,7 +109,7 @@ export default function Chat() {
   const recorder = useRecorder();
 
   const [person, setPerson] = useState(null);
-  const [status, setStatus] = useState("loading"); // loading | ok | missing
+  const [status, setStatus] = useState("loading"); // loading | ok | missing (a deleted account counts as ok)
   const [chat, setChat] = useState({ state: "closed", remaining: null });
   const [messages, setMessages] = useState([]);
   const [invites, setInvites] = useState({});
@@ -165,6 +165,15 @@ export default function Chat() {
       ]);
       if (cancelled) return;
       if (p.error) {
+        // Their account is gone, but the chat stays so you can still read it
+        if (!s.error && s.state === "gone") {
+          setPerson({ id, name: "Deleted account", photoUrls: [], verified: false, gone: true });
+          setMessages(m.messages || []);
+          setChat({ state: "gone", remaining: null });
+          setStatus("ok");
+          markRead(id);
+          return;
+        }
         setStatus("missing");
         return;
       }
@@ -385,9 +394,15 @@ export default function Chat() {
         <button onClick={like} disabled={busyLike}>Like {name}</button>
       </div>
     );
+  } else if (chat.state === "gone") {
+    bar = <div className="ch-bar lock">This user's account has been deleted or suspended.</div>;
   } else if (chat.state === "closed") {
     bar = <div className="ch-bar lock">You can't message this person right now.</div>;
   }
+
+  // A deleted account has no profile to open
+  const Who = person.gone ? "div" : Link;
+  const whoProps = person.gone ? {} : { to: `/user/${person.id}` };
 
   return (
     <div className="ch">
@@ -395,20 +410,22 @@ export default function Chat() {
         <button className="ch-back" onClick={() => navigate("/messages")} aria-label="Back to messages">
           <BackIcon size={22} />
         </button>
-        <Link to={`/user/${person.id}`} className="ch-who">
-          <Avatar photo={person.photoUrls?.[0]} name={name} bg={bg} fg={fg} size={36} />
+        <Who {...whoProps} className="ch-who">
+          <Avatar photo={person.photoUrls?.[0]} name={person.gone ? "?" : name} bg={bg} fg={fg} size={36} />
           <span className="ch-name">
             {name}
             {person.verified && <i className="ti ti-rosette-discount-check vb"></i>}
           </span>
-        </Link>
-        <button className="ch-report" onClick={() => setMenu(true)}>Block / Report</button>
+        </Who>
+        {!person.gone && (
+          <button className="ch-report" onClick={() => setMenu(true)}>Block / Report</button>
+        )}
       </header>
 
       <PullIndicator pull={pull} refreshing={refreshing} top={64} />
 
       <main className="ch-list" ref={listRef}>
-        {messages.length === 0 && (
+        {messages.length === 0 && chat.state !== "gone" && (
           <div className="ch-start">
             <p>
               {chat.state === "matched"
