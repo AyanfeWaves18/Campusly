@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AppLayout from "../components/AppLayout.jsx";
 import Avatar from "../components/Avatar.jsx";
 import CalendarSheet from "../components/CalendarSheet.jsx";
+import DeptPicker, { DeptMulti } from "../components/DeptPicker.jsx";
 import Lightbox from "../components/Lightbox.jsx";
 import { XIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
@@ -10,7 +11,14 @@ import { getUser } from "../utils/storage.js";
 import { completeness, formatWhen } from "../utils/data.js";
 import { fetchMyGoingEvents } from "../lib/events.js";
 import { fetchCompanions } from "../lib/invites.js";
-import { departments, levels, interestsList, promptQuestions } from "../utils/options.js";
+import { departmentsFor } from "../utils/departments.js";
+import {
+  levels,
+  interestsList,
+  promptQuestions,
+  interestedInOptions,
+  lookingForOptions,
+} from "../utils/options.js";
 import { saveProfileToCloud } from "../lib/profile.js";
 import { addPhoto, loadPhotoUrls, removePhoto as removePhotoFromCloud, MAX_PHOTOS } from "../lib/photos.js";
 import "./Inner.css";
@@ -78,17 +86,11 @@ export default function Profile() {
     });
   }
 
-  // The departments you'd like to meet. "Any department" clears the others, and picking one removes it.
+  // The departments you'd like to meet. With none chosen it means "Any department".
   const prefs = draft.deptPrefs?.length ? draft.deptPrefs : [ANY];
-  function toggleDept(dept) {
-    if (dept === ANY) {
-      setDraft({ ...draft, deptPrefs: [ANY] });
-      return;
-    }
-    const without = prefs.filter((d) => d !== ANY);
-    const next = without.includes(dept) ? without.filter((d) => d !== dept) : [...without, dept];
-    setDraft({ ...draft, deptPrefs: next.length ? next : [ANY] });
-  }
+
+  // Only the departments of your own school are offered
+  const deptOptions = departmentsFor(user.uni);
 
   // Opens the editor (if it isn't open already) and points at one part of it
   function startEdit(focus) {
@@ -119,11 +121,17 @@ export default function Profile() {
       toast("Your name can't be empty", "err");
       return;
     }
+    if (!draft.interestedIn || !draft.lookingFor) {
+      toast("Choose who you're interested in and what you're looking for", "err");
+      return;
+    }
     setSaving(true);
     const { error } = await saveProfileToCloud({
       name: draft.name,
       department: draft.department,
       level: draft.level,
+      interestedIn: draft.interestedIn,
+      lookingFor: draft.lookingFor,
       bio: draft.bio || "",
       interests: draft.interests || [],
       prompts: draft.prompts || {},
@@ -210,15 +218,46 @@ export default function Profile() {
               <label>Full name</label>
               <input name="name" value={draft.name || ""} onChange={change} />
 
-              <label>Department</label>
-              <select name="department" value={draft.department || ""} onChange={change}>
-                {departments.map((d) => <option key={d}>{d}</option>)}
-              </select>
+              <label htmlFor="pf-dept">Department</label>
+              <DeptPicker
+                id="pf-dept"
+                options={deptOptions}
+                value={draft.department || ""}
+                onChange={(d) => setDraft({ ...draft, department: d })}
+              />
 
               <label>Level</label>
               <select name="level" value={draft.level || ""} onChange={change}>
                 {levels.map((l) => <option key={l}>{l}</option>)}
               </select>
+
+              <label>Interested in</label>
+              <div className="au-chips">
+                {interestedInOptions.map((o) => (
+                  <button
+                    type="button"
+                    key={o}
+                    className={`au-chip ${draft.interestedIn === o ? "on" : ""}`}
+                    onClick={() => setDraft({ ...draft, interestedIn: o })}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+
+              <label>Looking for</label>
+              <div className="au-chips">
+                {lookingForOptions.map((o) => (
+                  <button
+                    type="button"
+                    key={o}
+                    className={`au-chip ${draft.lookingFor === o ? "on" : ""}`}
+                    onClick={() => setDraft({ ...draft, lookingFor: o })}
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
 
               <label>Bio</label>
               <textarea id="pf-bio" name="bio" rows="3" maxLength="160" value={draft.bio || ""} onChange={change} />
@@ -238,17 +277,12 @@ export default function Profile() {
               </div>
 
               <label>Departments you'd like to meet</label>
-              <div className="au-chips" id="pf-depts">
-                {[ANY, ...departments].map((d) => (
-                  <button
-                    type="button"
-                    key={d}
-                    className={`au-chip ${prefs.includes(d) ? "on" : ""}`}
-                    onClick={() => toggleDept(d)}
-                  >
-                    {d}
-                  </button>
-                ))}
+              <div id="pf-depts">
+                <DeptMulti
+                  options={deptOptions}
+                  value={prefs}
+                  onChange={(v) => setDraft({ ...draft, deptPrefs: v })}
+                />
               </div>
 
               <label>Icebreakers (answer any)</label>
