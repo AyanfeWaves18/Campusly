@@ -1,0 +1,78 @@
+/* The white box that holds the search and the list, so it reads well on any background */
+.dp-box {
+  margin: 8px 0 14px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  --text: #2b1b6b;
+  --card: #fff;
+  --border: #e3dcf5;
+  --muted: #5b4e8a;
+}
+
+.dp-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted, #8a8794);
+}
+
+/* Chosen departments */
+.dp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.dp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1.5px solid #ff3d81;
+  border-radius: 999px;
+  background: #ff3d81;
+  color: #2b1b6b;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dp-tag.any {
+  background: transparent;
+  color: inherit;
+  cursor: default;
+}
+
+.dp-x {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.dp-add {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dp-close {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted, #5b4e8a);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}

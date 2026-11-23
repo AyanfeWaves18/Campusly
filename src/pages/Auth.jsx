@@ -4,13 +4,14 @@ import Captcha from "../components/Captcha.jsx";
 import Footer from "../components/Footer.jsx";
 import ForgotForm from "../components/ForgotForm.jsx";
 import Logo from "../components/Logo.jsx";
+import DeptPicker, { DeptMulti } from "../components/DeptPicker.jsx";
 import UniPicker from "../components/UniPicker.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { checkPassword, passwordRules } from "../utils/validate.js";
 import { signInUser, signInWithGoogle, signUpUser } from "../lib/auth.js";
 import { checkInvite, getRequireInvite, normCode } from "../lib/codes.js";
+import { departmentsFor } from "../utils/departments.js";
 import {
-  departments,
   levels,
   genders,
   interestedInOptions,
@@ -93,7 +94,7 @@ export default function Auth({ mode }) {
   const urlCode = normCode(new URLSearchParams(location.search).get("code"));
   if (urlCode) save("invite_code", urlCode);
 
-  // The university comes from the landing page, and can be changed on step 2 of sign-up
+  // The university must be chosen on the landing page first
   const [uni, setUni] = useState(() => location.state?.uni || load("uni", "") || getUser()?.uni || "");
   const [showUni, setShowUni] = useState(false);
 
@@ -153,14 +154,19 @@ export default function Auth({ mode }) {
     const has = form.interests.includes(item);
     setField("interests", has ? form.interests.filter((i) => i !== item) : [...form.interests, item]);
   }
-  function toggleDept(dept) {
-    if (dept === "Any department") {
-      setField("deptPrefs", ["Any department"]);
-      return;
-    }
-    const without = form.deptPrefs.filter((d) => d !== "Any department");
-    const next = without.includes(dept) ? without.filter((d) => d !== dept) : [...without, dept];
-    setField("deptPrefs", next.length ? next : ["Any department"]);
+  // Each school has its own departments, so a new school clears choices that don't exist there
+  function chooseUni(name) {
+    const list = departmentsFor(name);
+    const prefs = form.deptPrefs.filter((d) => list.includes(d));
+    setUni(name);
+    save("uni", name);
+    setShowUni(false);
+    setForm({
+      ...form,
+      department: list.includes(form.department) ? form.department : "",
+      deptPrefs: prefs.length ? prefs : ["Any department"],
+    });
+    setError("");
   }
 
   async function handleGoogle() {
@@ -396,21 +402,18 @@ export default function Auth({ mode }) {
               {showUni && (
                 <div className="au-uni-box">
                   <UniPicker
-                    onPick={(name) => {
-                      setUni(name);
-                      save("uni", name);
-                      setShowUni(false);
-                      setError("");
-                    }}
+                    onPick={chooseUni}
                   />
                 </div>
               )}
 
-              <label>Department</label>
-              <select name="department" value={form.department} onChange={update}>
-                <option value="">Choose your department</option>
-                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+              <label htmlFor="au-dept">Department</label>
+              <DeptPicker
+                id="au-dept"
+                options={departmentsFor(uni)}
+                value={form.department}
+                onChange={(d) => setField("department", d)}
+              />
 
               <label>Level</label>
               <select name="level" value={form.level} onChange={update}>
@@ -433,11 +436,11 @@ export default function Auth({ mode }) {
               </div>
 
               <label>Departments you'd like to meet</label>
-              <div className="au-chips">
-                {["Any department", ...departments].map((d) => (
-                  <Chip key={d} on={form.deptPrefs.includes(d)} onClick={() => toggleDept(d)}>{d}</Chip>
-                ))}
-              </div>
+              <DeptMulti
+                options={departmentsFor(uni)}
+                value={form.deptPrefs}
+                onChange={(v) => setField("deptPrefs", v)}
+              />
 
               <label>Your interests</label>
               <div className="au-chips">
