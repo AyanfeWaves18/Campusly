@@ -131,7 +131,7 @@ function MessagesBody() {
     const missing = c.chats.map((x) => x.partner_id).filter((pid) => !byId.has(pid));
     const gone = await fetchGonePartners(missing);
     const personFor = (pid) =>
-      byId.get(pid) || (gone.has(pid) ? { id: pid, name: "Deleted account", photoUrl: null, gone: true } : null);
+    byId.get(pid) || (gone.has(pid) ? { id: pid, name: "Unavailable account", photoUrl: null, gone: true } : null);
     setError("");
     setChats(
       c.chats

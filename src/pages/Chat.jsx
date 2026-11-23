@@ -167,7 +167,7 @@ export default function Chat() {
       if (p.error) {
         // Their account is gone, but the chat stays so you can still read it
         if (!s.error && s.state === "gone") {
-          setPerson({ id, name: "Deleted account", photoUrls: [], verified: false, gone: true });
+          setPerson({ id, name: "Unavailable account", photoUrls: [], verified: false, gone: true });
           setMessages(m.messages || []);
           setChat({ state: "gone", remaining: null });
           setStatus("ok");
