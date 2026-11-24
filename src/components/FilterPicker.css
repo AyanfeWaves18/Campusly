@@ -1,0 +1,26 @@
+/* Sits in the filter grid like any other filter. Opens to full width so the list is easy to read. */
+.fp {
+  min-width: 0;
+}
+.fp.open {
+  grid-column: 1 / -1;
+  flex-basis: 100%;
+  width: 100%;
+}
+.fp-field {
+  position: relative;
+}
+.fp-field select {
+  width: 100%;
+  pointer-events: none;
+}
+.fp-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: pointer;
+}

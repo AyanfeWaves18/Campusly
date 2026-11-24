@@ -9,7 +9,9 @@ import { NotifyBanner } from "../components/NotifyCard.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { completeness } from "../utils/data.js";
 import { levels, genders } from "../utils/options.js";
+import FilterPicker from "../components/FilterPicker.jsx";
 import { departmentsFor } from "../utils/departments.js";
+import { UNIVERSITIES } from "../utils/universities.js";
 import { fetchPeople, fetchMyOpen, setOtherCampuses } from "../lib/people.js";
 import { fetchMyLikes, likePerson, unlikePerson } from "../lib/likes.js";
 import { syncPush } from "../lib/push.js";
@@ -104,10 +106,18 @@ export default function Feed() {
   }
   const { pull, refreshing } = usePullToRefresh(refresh);
 
-  const uniOptions = useMemo(
-    () => [...new Set(people.map((p) => p.uni).filter(Boolean))].sort(),
-    [people]
-  );
+  // Every university on the list, plus any school people typed in themselves, A to Z.
+  // Searching works on the full name or the short name, like UNILAG.
+  const uniOptions = useMemo(() => {
+    const byName = new Map();
+    Object.values(UNIVERSITIES)
+      .flat()
+      .forEach((u) => byName.set(u.name, { value: u.name, hint: u.short }));
+    people.forEach((p) => {
+      if (p.uni && !byName.has(p.uni)) byName.set(p.uni, { value: p.uni, hint: "" });
+    });
+    return [...byName.values()].sort((a, b) => a.value.localeCompare(b.value));
+  }, [people]);
 
   // The department filter follows the school: yours on My campus, the chosen one on Other campuses.
   // With no school chosen there, it lists the departments of the people you can see.
@@ -116,6 +126,8 @@ export default function Feed() {
     if (filters.uni) return departmentsFor(filters.uni);
     return [...new Set(people.map((p) => p.department).filter(Boolean))].sort();
   }, [scope, me.uni, filters.uni, people]);
+
+  const deptItems = useMemo(() => deptOptions.map((d) => ({ value: d })), [deptOptions]);
 
   const list = useMemo(() => {
     const out = people.filter(
@@ -165,11 +177,14 @@ export default function Feed() {
     setMode(v);
     save("mode", v);
   }
-  function setFilter(e) {
-    const next = { ...filters, [e.target.name]: e.target.value };
+  function setFilterValue(name, value) {
+    const next = { ...filters, [name]: value };
     // A new school has its own departments, so the old department choice is dropped
-    if (e.target.name === "uni") next.department = "";
+    if (name === "uni") next.department = "";
     setFilters(next);
+  }
+  function setFilter(e) {
+    setFilterValue(e.target.name, e.target.value);
   }
   function clearAll() {
     setFilters({ department: "", level: "", gender: "", uni: "" });
@@ -274,15 +289,25 @@ export default function Feed() {
                 </div>
                 <div className="fd-filters">
                   {scope === "other" && (
-                    <select name="uni" value={filters.uni} onChange={setFilter}>
-                      <option value="">University</option>
-                      {uniOptions.map((u) => <option key={u}>{u}</option>)}
-                    </select>
+                    <FilterPicker
+                      name="uni"
+                      value={filters.uni}
+                      onChange={setFilterValue}
+                      options={uniOptions}
+                      placeholder="University"
+                      allLabel="All universities"
+                      searchLabel="Search universities"
+                    />
                   )}
-                  <select name="department" value={filters.department} onChange={setFilter}>
-                    <option value="">Department</option>
-                    {deptOptions.map((d) => <option key={d}>{d}</option>)}
-                  </select>
+                  <FilterPicker
+                    name="department"
+                    value={filters.department}
+                    onChange={setFilterValue}
+                    options={deptItems}
+                    placeholder="Department"
+                    allLabel="All departments"
+                    searchLabel="Search departments"
+                  />
                   <select name="level" value={filters.level} onChange={setFilter}>
                     <option value="">Level</option>
                     {levels.map((l) => <option key={l}>{l}</option>)}
@@ -314,6 +339,12 @@ export default function Feed() {
                 <h3>Couldn't load people</h3>
                 <p>{loadError}</p>
                 <a href="/feed" onClick={(e) => { e.preventDefault(); loadPeople(true); }}>Try again</a>
+              </div>
+            ) : scope === "other" && filters.uni && !people.some((p) => p.uni === filters.uni && !blocked.includes(p.id)) ? (
+              <div className="empty">
+                <i className="ti ti-users"></i>
+                <h3>No one from this Campus has joined yet.</h3>
+                <p>Try another university, or check back soon.</p>
               </div>
             ) : people.length === 0 ? (
               scope === "other" ? (
