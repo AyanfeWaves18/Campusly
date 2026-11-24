@@ -8,7 +8,8 @@ import { useToast } from "../components/Toast.jsx";
 import { NotifyBanner } from "../components/NotifyCard.jsx";
 import { getUser, load, save } from "../utils/storage.js";
 import { completeness } from "../utils/data.js";
-import { departments, levels, genders } from "../utils/options.js";
+import { levels, genders } from "../utils/options.js";
+import { departmentsFor } from "../utils/departments.js";
 import { fetchPeople, fetchMyOpen, setOtherCampuses } from "../lib/people.js";
 import { fetchMyLikes, likePerson, unlikePerson } from "../lib/likes.js";
 import { syncPush } from "../lib/push.js";
@@ -108,6 +109,14 @@ export default function Feed() {
     [people]
   );
 
+  // The department filter follows the school: yours on My campus, the chosen one on Other campuses.
+  // With no school chosen there, it lists the departments of the people you can see.
+  const deptOptions = useMemo(() => {
+    if (scope !== "other") return departmentsFor(me.uni);
+    if (filters.uni) return departmentsFor(filters.uni);
+    return [...new Set(people.map((p) => p.department).filter(Boolean))].sort();
+  }, [scope, me.uni, filters.uni, people]);
+
   const list = useMemo(() => {
     const out = people.filter(
       (p) =>
@@ -128,7 +137,7 @@ export default function Feed() {
     scopeRef.current = v;
     setScope(v);
     save("feed_scope", v);
-    setFilters((f) => ({ ...f, uni: "" }));
+    setFilters((f) => ({ ...f, uni: "", department: "" }));
     loadPeople(true, v);
   }
 
@@ -157,7 +166,10 @@ export default function Feed() {
     save("mode", v);
   }
   function setFilter(e) {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+    const next = { ...filters, [e.target.name]: e.target.value };
+    // A new school has its own departments, so the old department choice is dropped
+    if (e.target.name === "uni") next.department = "";
+    setFilters(next);
   }
   function clearAll() {
     setFilters({ department: "", level: "", gender: "", uni: "" });
@@ -199,8 +211,9 @@ export default function Feed() {
           </Link>
         )}
 
+        <NotifyBanner />
+
         <div className="fd-mode">
-                  <NotifyBanner />
           <button className={scope === "campus" ? "on" : ""} onClick={() => pickScope("campus")}>
             My campus
           </button>
@@ -268,7 +281,7 @@ export default function Feed() {
                   )}
                   <select name="department" value={filters.department} onChange={setFilter}>
                     <option value="">Department</option>
-                    {departments.map((d) => <option key={d}>{d}</option>)}
+                    {deptOptions.map((d) => <option key={d}>{d}</option>)}
                   </select>
                   <select name="level" value={filters.level} onChange={setFilter}>
                     <option value="">Level</option>
