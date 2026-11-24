@@ -7,8 +7,10 @@ import { supabase } from "../lib/supabase.js";
 import { completeMyProfile, syncUser } from "../lib/auth.js";
 import { checkInvite, getRequireInvite, normCode } from "../lib/codes.js";
 import { load, save, setLoggedIn } from "../utils/storage.js";
+import DeptPicker, { DeptMulti } from "../components/DeptPicker.jsx";
+import UniPicker from "../components/UniPicker.jsx";
+import { departmentsFor } from "../utils/departments.js";
 import {
-  departments,
   levels,
   genders,
   interestedInOptions,
@@ -17,7 +19,6 @@ import {
 } from "../utils/options.js";
 import "./Auth.css";
 
-const CAMPUSES = ["Crawford University"];
 const digits = (s) => (s || "").replace(/\D/g, "");
 
 function Chip({ on, onClick, children }) {
@@ -41,13 +42,14 @@ export default function Onboarding() {
   const [error, setError] = useState("");
   const [agree, setAgree] = useState(alreadyConfirmed);
   const [needCode, setNeedCode] = useState(false);
-     useEffect(() => {
-       getRequireInvite().then(setNeedCode);
-     }, []);
+  useEffect(() => {
+    getRequireInvite().then(setNeedCode);
+  }, []);
+  const [showUni, setShowUni] = useState(false);
   const [invite, setInvite] = useState(() => normCode(load("invite_code", "")));
   const [form, setForm] = useState({
     name: "",
-    uni: CAMPUSES.includes(saved) ? saved : "",
+    uni: saved || "",
     phone: "",
     gender: "",
     department: "",
@@ -96,14 +98,19 @@ export default function Onboarding() {
     const has = form.interests.includes(item);
     setField("interests", has ? form.interests.filter((i) => i !== item) : [...form.interests, item]);
   }
-  function toggleDept(dept) {
-    if (dept === "Any department") {
-      setField("deptPrefs", ["Any department"]);
-      return;
-    }
-    const without = form.deptPrefs.filter((d) => d !== "Any department");
-    const next = without.includes(dept) ? without.filter((d) => d !== dept) : [...without, dept];
-    setField("deptPrefs", next.length ? next : ["Any department"]);
+  // Each school has its own departments, so a new school clears choices that don't exist there
+  function chooseUni(name) {
+    const list = departmentsFor(name);
+    const prefs = form.deptPrefs.filter((d) => list.includes(d));
+    save("uni", name);
+    setShowUni(false);
+    setForm({
+      ...form,
+      uni: name,
+      department: list.includes(form.department) ? form.department : "",
+      deptPrefs: prefs.length ? prefs : ["Any department"],
+    });
+    setError("");
   }
 
   async function submit(e) {
@@ -116,11 +123,11 @@ export default function Onboarding() {
     }
     if (form.interests.length === 0) return setError("Pick at least one interest.");
     if (needCode && !invite) {
-       return setError("An invite code is needed to join right now. Ask a friend for theirs.");
-       }
+      return setError("An invite code is needed to join right now. Ask a friend for theirs.");
+    }
     if (invite && !(await checkInvite(invite))) {
-       return setError("We couldn't find that invite code. Check it, or clear the box to continue without one.");
-       }
+      return setError("We couldn't find that invite code. Check it, or clear the box to continue without one.");
+    }
     if (!agree) {
       return setError("Please confirm you're 18 or older and accept the Terms and Privacy Policy.");
     }
@@ -169,11 +176,27 @@ export default function Onboarding() {
             <label>Full name</label>
             <input name="name" placeholder="John Doe" value={form.name} onChange={update} />
 
-            <label>University</label>
-            <select name="uni" value={form.uni} onChange={update}>
-              <option value="">Choose your university</option>
-              {CAMPUSES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            <label htmlFor="au-uni">University</label>
+            <input
+              id="au-uni"
+              readOnly
+              value={form.uni}
+              placeholder="Choose your university"
+              aria-expanded={showUni}
+              style={{ cursor: "pointer" }}
+              onClick={() => setShowUni(!showUni)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowUni(!showUni);
+                }
+              }}
+            />
+            {showUni && (
+              <div className="au-uni-box">
+                <UniPicker onPick={chooseUni} />
+              </div>
+            )}
 
             <label>Phone number</label>
             <input name="phone" type="tel" placeholder="0801 234 5678" value={form.phone} onChange={update} />
@@ -185,11 +208,13 @@ export default function Onboarding() {
               ))}
             </div>
 
-            <label>Department</label>
-            <select name="department" value={form.department} onChange={update}>
-              <option value="">Choose your department</option>
-              {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <label htmlFor="au-dept">Department</label>
+            <DeptPicker
+              id="au-dept"
+              options={departmentsFor(form.uni)}
+              value={form.department}
+              onChange={(d) => setField("department", d)}
+            />
 
             <label>Level</label>
             <select name="level" value={form.level} onChange={update}>
@@ -212,11 +237,11 @@ export default function Onboarding() {
             </div>
 
             <label>Departments you'd like to meet</label>
-            <div className="au-chips">
-              {["Any department", ...departments].map((d) => (
-                <Chip key={d} on={form.deptPrefs.includes(d)} onClick={() => toggleDept(d)}>{d}</Chip>
-              ))}
-            </div>
+            <DeptMulti
+              options={departmentsFor(form.uni)}
+              value={form.deptPrefs}
+              onChange={(v) => setField("deptPrefs", v)}
+            />
 
             <label>Your interests</label>
             <div className="au-chips">
@@ -235,7 +260,7 @@ export default function Onboarding() {
               onChange={update}
             />
 
-               <label>{needCode ? "Invite code (required)" : "Invite code (optional)"}</label>
+            <label>{needCode ? "Invite code (required)" : "Invite code (optional)"}</label>
             <input
               placeholder="ABCD-1234"
               autoCapitalize="characters"
