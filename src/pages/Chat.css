@@ -489,3 +489,12 @@
   color: var(--text);
   border: 1px solid var(--line);
 }
+
+
+/* A message written with no internet: a small red line under it */
+.ch-wait {
+  align-self: flex-end;
+  font-size: 0.7rem;
+  color: #e5484d;
+  margin-top: -4px;
+}

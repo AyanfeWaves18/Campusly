@@ -18,9 +18,11 @@ import {
   fetchMessages,
   markRead,
   openTypingChannel,
-  sendMessage,
+  sendOrQueue,
   subscribeToChat,
+  subscribeToOutbox,
   subscribeToReads,
+  waitingMessages,
 } from "../lib/chat.js";
 import "./Chat.css";
 
@@ -122,6 +124,7 @@ export default function Chat() {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [menu, setMenu] = useState(false);
   const [busyLike, setBusyLike] = useState(false);
+  const [waiting, setWaiting] = useState(() => waitingMessages(id)); // messages waiting for internet
 
   const listRef = useRef(null);
   const endRef = useRef(null);
@@ -132,6 +135,25 @@ export default function Chat() {
     const res = await fetchChatState(id);
     if (!res.error) setChat({ state: res.state, remaining: res.remaining });
   }, [id]);
+
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+
+  // Messages written with no internet: shown with a red note, then sent by themselves later
+  useEffect(() => {
+    setWaiting(waitingMessages(id));
+    return subscribeToOutbox((evt) => {
+      setWaiting(waitingMessages(id));
+      if (evt.partnerId !== id) return;
+      if (evt.type === "sent") {
+        setMessages((list) => (list.some((x) => x.id === evt.message.id) ? list : [...list, evt.message]));
+        refreshState();
+      } else if (evt.type === "failed") {
+        toastRef.current(evt.error, "err");
+        refreshState();
+      }
+    });
+  }, [id, refreshState]);
 
   const loadInvites = useCallback(async () => {
     const res = await fetchInvitesWith(id);
@@ -255,7 +277,7 @@ export default function Chat() {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, invites, peer, sendingVoice]);
+  }, [messages, invites, peer, sendingVoice, waiting]);
 
   const canSend = chat.state === "matched" || chat.state === "open";
 
@@ -268,14 +290,18 @@ export default function Chat() {
     }
     if (!canSend || sending) return;
     setSending(true);
-    const res = await sendMessage(id, t);
+    const res = await sendOrQueue(id, t);
     setSending(false);
     if (res.error) {
       toast(res.error, "err");
       refreshState();
       return;
     }
-    setMessages((list) => (list.some((x) => x.id === res.message.id) ? list : [...list, res.message]));
+    if (res.queued) {
+      setWaiting(waitingMessages(id)); // no internet: it waits and goes out by itself
+    } else {
+      setMessages((list) => (list.some((x) => x.id === res.message.id) ? list : [...list, res.message]));
+    }
     setText("");
     setEmojiOpen(false);
     typingRef.current?.send(false);
@@ -425,7 +451,7 @@ export default function Chat() {
       <PullIndicator pull={pull} refreshing={refreshing} top={64} />
 
       <main className="ch-list" ref={listRef}>
-        {messages.length === 0 && chat.state !== "gone" && (
+        {messages.length === 0 && waiting.length === 0 && chat.state !== "gone" && (
           <div className="ch-start">
             <p>
               {chat.state === "matched"
@@ -465,6 +491,16 @@ export default function Chat() {
             </div>
           );
         })}
+
+        {waiting.map((w) => (
+          <div key={w.tmpId} style={{ display: "contents" }}>
+            <div className="ch-msg me pending">
+              {w.text}
+              <span className="ch-meta">{clock(w.ts)}</span>
+            </div>
+            <div className="ch-wait">Waiting to send, connect to internet</div>
+          </div>
+        ))}
 
         {sendingVoice && <div className="ch-msg me pending">Sending voice note...</div>}
 

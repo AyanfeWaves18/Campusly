@@ -24,10 +24,141 @@ export async function fetchChatState(partnerId) {
   return { state: row?.state || "closed", remaining: row?.remaining ?? null };
 }
 
+// True when the database itself said no (limit reached, not allowed...). Anything else, like a
+// dropped connection, is worth trying again later.
+function refused(error) {
+  const text = (error?.message || "").trim();
+  return !!ERRORS[text] || error?.code === "P0001";
+}
+
 export async function sendMessage(partnerId, text) {
   const { data, error } = await supabase.rpc("send_message", { target: partnerId, content: text });
-  if (error) return { error: friendly(error), code: (error.message || "").trim() };
+  if (error) {
+    return { error: friendly(error), code: (error.message || "").trim(), retry: !refused(error) };
+  }
   return { message: Array.isArray(data) ? data[0] : data };
+}
+
+// ---------- Messages waiting for a connection ----------
+// With no internet, a message is kept on this phone and sent by itself when the connection is back.
+const MAX_WAITING = 20;
+const outboxListeners = new Set();
+
+function outboxKey() {
+  const me = getUser()?.id;
+  return me ? `campusly_outbox_${me}` : null;
+}
+function readOutbox() {
+  const key = outboxKey();
+  if (!key) return [];
+  try {
+    const list = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+function writeOutbox(list) {
+  const key = outboxKey();
+  if (!key) return false;
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+function tellOutbox(event) {
+  outboxListeners.forEach((fn) => {
+    try {
+      fn(event);
+    } catch {
+      /* one listener failing must not stop the others */
+    }
+  });
+}
+function dropFromOutbox(tmpId) {
+  writeOutbox(readOutbox().filter((m) => m.tmpId !== tmpId));
+}
+
+// The messages to one person that are still waiting: { tmpId, to, text, ts }
+export function waitingMessages(partnerId) {
+  return readOutbox().filter((m) => m.to === partnerId);
+}
+
+// Calls fn when the waiting list changes, a waiting message gets sent, or one is refused.
+// Events: { type: "queued" } | { type: "sent", partnerId, message } | { type: "failed", partnerId, error }
+export function subscribeToOutbox(fn) {
+  outboxListeners.add(fn);
+  return () => outboxListeners.delete(fn);
+}
+
+function queueMessage(partnerId, text) {
+  const list = readOutbox();
+  if (list.filter((m) => m.to === partnerId).length >= MAX_WAITING) {
+    return { error: "Too many messages are waiting. Connect to the internet first." };
+  }
+  const item = {
+    tmpId: `w_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    to: partnerId,
+    text,
+    ts: Date.now(),
+  };
+  if (!writeOutbox([...list, item])) return { error: "We couldn't send your message. Please try again." };
+  tellOutbox({ type: "queued" });
+  return { queued: item };
+}
+
+// Sends the message. If there is no connection, it waits on the phone and goes out later.
+// Returns { message } when sent, { queued } when waiting, or { error }.
+export async function sendOrQueue(partnerId, text) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return queueMessage(partnerId, text);
+  const res = await sendMessage(partnerId, text);
+  if (res.retry) return queueMessage(partnerId, text);
+  return res;
+}
+
+let flushing = false;
+
+// Sends the waiting messages, oldest first. Stops as soon as the connection fails again.
+export async function flushOutbox() {
+  if (flushing) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  if (!getUser()?.id) return;
+  flushing = true;
+  try {
+    const refusedFor = new Set(); // people who said no this round, so their other messages are dropped too
+    for (const item of readOutbox()) {
+      if (refusedFor.has(item.to)) {
+        dropFromOutbox(item.tmpId);
+        continue;
+      }
+      const res = await sendMessage(item.to, item.text);
+      if (res.error) {
+        if (res.retry) break; // still no connection, try again later
+        refusedFor.add(item.to);
+        dropFromOutbox(item.tmpId);
+        tellOutbox({ type: "failed", partnerId: item.to, error: res.error });
+        continue;
+      }
+      dropFromOutbox(item.tmpId);
+      tellOutbox({ type: "sent", partnerId: item.to, message: res.message });
+    }
+  } finally {
+    flushing = false;
+  }
+}
+
+// Starts by itself: when the connection comes back, when the app is opened again, and every 15 seconds
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => flushOutbox());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") flushOutbox();
+  });
+  setInterval(() => {
+    if (readOutbox().length) flushOutbox();
+  }, 15000);
+  setTimeout(() => flushOutbox(), 2000);
 }
 
 // Every message between you and one person, oldest first
