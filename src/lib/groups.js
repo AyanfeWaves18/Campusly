@@ -124,3 +124,62 @@ export function subscribeToGroup(id, onInsert) {
     supabase.removeChannel(channel);
   };
 }
+
+
+// "Is typing" signals for a group. Nothing is saved: they go straight between the phones.
+// onChange gets the people typing right now: [{ id, name }]
+export function openGroupTyping(groupId, me, onChange) {
+  if (!me?.id) return { send() {}, close() {} };
+  const firstName = String(me.name || "Someone").trim().split(/\s+/)[0].slice(0, 30) || "Someone";
+  const channel = supabase.channel(`group-typing-${groupId}`, { config: { broadcast: { self: false } } });
+  const typers = new Map(); // person id -> { name, timer }
+
+  const emit = () => onChange([...typers].map(([id, t]) => ({ id, name: t.name })));
+  const drop = (id) => {
+    const t = typers.get(id);
+    if (!t) return;
+    clearTimeout(t.timer);
+    typers.delete(id);
+    emit();
+  };
+
+  channel.on("broadcast", { event: "typing" }, ({ payload }) => {
+    const from = payload?.from;
+    if (!from || from === me.id) return;
+    if (!payload.typing) {
+      drop(from);
+      return;
+    }
+    const old = typers.get(from);
+    if (old) clearTimeout(old.timer);
+    // If the signal stops coming (closed tab, lost signal), clear it after a moment
+    typers.set(from, {
+      name: String(payload.name || "Someone").slice(0, 40),
+      timer: setTimeout(() => drop(from), 3500),
+    });
+    if (!old) emit();
+  });
+  channel.subscribe();
+
+  let last = 0;
+  return {
+    // send() says "I'm typing". send(false) says "I stopped".
+    send(on = true) {
+      const now = Date.now();
+      if (on) {
+        if (now - last < 1500) return;
+        last = now;
+      }
+      channel.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { from: me.id, name: firstName, typing: !!on },
+      });
+    },
+    close() {
+      typers.forEach((t) => clearTimeout(t.timer));
+      typers.clear();
+      supabase.removeChannel(channel);
+    },
+  };
+}

@@ -4,11 +4,12 @@ import Avatar from "../components/Avatar.jsx";
 import GroupInfo from "../components/GroupInfo.jsx";
 import { BackIcon, SendIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
-import { getUser, isLoggedIn } from "../utils/storage.js";
+import { getUser, isLoggedIn, load } from "../utils/storage.js";
 import {
   fetchGroupInfo,
   fetchGroupMessages,
   markGroupRead,
+  openGroupTyping,
   sendGroupMessage,
   subscribeToGroup,
 } from "../lib/groups.js";
@@ -40,8 +41,10 @@ export default function Group() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [typers, setTypers] = useState([]); // who is typing right now
 
   const endRef = useRef(null);
+  const typingRef = useRef(null);
 
   const loadInfo = useCallback(async () => {
     const res = await fetchGroupInfo(id);
@@ -100,9 +103,30 @@ export default function Group() {
     };
   }, [id, status, loadMessages, loadInfo]);
 
+  // "Is typing": shows who is writing right now
+  useEffect(() => {
+    if (status !== "ok") return;
+    const t = openGroupTyping(id, me, (list) => {
+      const blocked = load("blocked", []);
+      setTypers(list.filter((p) => !blocked.includes(p.id)));
+    });
+    typingRef.current = t;
+    return () => {
+      t.close();
+      typingRef.current = null;
+      setTypers([]);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, status]);
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, typers.length]);
+
+  function onType(e) {
+    setText(e.target.value);
+    typingRef.current?.send(!!e.target.value);
+  }
 
   async function send(e) {
     e?.preventDefault();
@@ -126,6 +150,7 @@ export default function Group() {
         : [...list, { id: m.id, sender_id: m.sender_id, sender_name: me?.name, sender_uni: me?.uni, body: m.body, created_at: m.created_at }]
     );
     setText("");
+    typingRef.current?.send(false);
   }
 
   if (status === "loading") {
@@ -193,6 +218,18 @@ export default function Group() {
             </div>
           );
         })}
+        {typers.length > 0 && (
+          <div className="ch-peer" aria-live="polite">
+            <div className="ch-typing">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <small className="ch-peer-text">
+              {typers.length === 1 ? `${typers[0].name} is typing...` : `${typers.length} people are typing...`}
+            </small>
+          </div>
+        )}
         <div ref={endRef}></div>
       </main>
 
@@ -202,7 +239,7 @@ export default function Group() {
             placeholder="Message the group"
             value={text}
             maxLength={MAX_TEXT}
-            onChange={(e) => setText(e.target.value)}
+            onChange={onType}
           />
           <button
             type="submit"
