@@ -10,6 +10,7 @@ import { fetchMyCompliments, markComplimentsSeen, reportCompliment } from "../li
 import { likePerson } from "../lib/likes.js";
 import { fetchPeopleByIds } from "../lib/people.js";
 import { fetchGonePartners } from "../lib/gone.js";
+import GroupsTab from "../components/GroupsTab.jsx";
 import "../components/Modals.css";
 import "./Pages.css";
 
@@ -208,6 +209,7 @@ function MessagesBody() {
 
       <div className="pg-tabs">
         <button className={tab === "chats" ? "on" : ""} onClick={() => setTab("chats")}>Chats</button>
+        <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>Groups</button>
         <button className={tab === "requests" ? "on" : ""} onClick={() => setTab("requests")}>
           Requests
           {requests.length > 0 && <span className="tab-count">{requests.length}</span>}
@@ -218,7 +220,7 @@ function MessagesBody() {
         </button>
       </div>
 
-      {tab !== "compliments" && loading && (
+      {tab !== "compliments" && tab !== "groups" && loading && (
         <>
           {[1, 2, 3].map((n) => (
             <div className="row plain" key={n}>
@@ -229,7 +231,7 @@ function MessagesBody() {
         </>
       )}
 
-      {tab !== "compliments" && !loading && error && (
+      {tab !== "compliments" && tab !== "groups" && !loading && error && (
         <div className="empty">
           <i className="ti ti-wifi-off"></i>
           <h3>Couldn't load your messages</h3>
@@ -343,6 +345,8 @@ function MessagesBody() {
           ))
         ))}
 
+            {/* GROUPS */}
+      {tab === "groups" && <GroupsTab />}
       {reporting && (
         <ReportComplimentSheet
           item={reporting}

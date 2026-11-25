@@ -12,6 +12,8 @@ import UserProfile from "./pages/UserProfile.jsx";
 import Matches from "./pages/Matches.jsx";
 import Messages from "./pages/Messages.jsx";
 import Chat from "./pages/Chat.jsx";
+import Group from "./pages/Group.jsx";
+import JoinGroup from "./pages/JoinGroup.jsx";
 import Events from "./pages/Events.jsx";
 import Profile from "./pages/Profile.jsx";
 import Settings from "./pages/Settings.jsx";
@@ -96,6 +98,8 @@ export default function App() {
         <Route path="/matches" element={<Matches />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/chat/:id" element={<Chat />} />
+        <Route path="/group/:id" element={<Group />} />
+        <Route path="/join/:code" element={<JoinGroup />} />
         <Route path="/events" element={<Events />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
