@@ -10,6 +10,7 @@ import { fetchMyCompliments, markComplimentsSeen, reportCompliment } from "../li
 import { likePerson } from "../lib/likes.js";
 import { fetchPeopleByIds } from "../lib/people.js";
 import { fetchGonePartners } from "../lib/gone.js";
+import { fetchMyGroups, subscribeToGroupsActivity } from "../lib/groups.js";
 import GroupsTab from "../components/GroupsTab.jsx";
 import "../components/Modals.css";
 import "./Pages.css";
@@ -105,6 +106,7 @@ function MessagesBody() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(null);
+  const [groupUnread, setGroupUnread] = useState(0);
 
   const [compliments, setCompliments] = useState([]);
   const [newIds, setNewIds] = useState([]);
@@ -132,7 +134,7 @@ function MessagesBody() {
     const missing = c.chats.map((x) => x.partner_id).filter((pid) => !byId.has(pid));
     const gone = await fetchGonePartners(missing);
     const personFor = (pid) =>
-    byId.get(pid) || (gone.has(pid) ? { id: pid, name: "Unavailable account", photoUrl: null, gone: true } : null);
+      byId.get(pid) || (gone.has(pid) ? { id: pid, name: "Unavailable account", photoUrl: null, gone: true } : null);
     setError("");
     setChats(
       c.chats
@@ -171,6 +173,21 @@ function MessagesBody() {
     }
   }, [tab]);
 
+  // The number on the Groups tab: unread messages across all your groups
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      const res = await fetchMyGroups();
+      if (alive && !res.error) setGroupUnread(res.groups.reduce((n, g) => n + Number(g.unread || 0), 0));
+    };
+    refresh();
+    const stop = subscribeToGroupsActivity(refresh);
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, []);
+
   async function likeBack(r) {
     setBusy(r.partner_id);
     const res = await likePerson(r.partner_id);
@@ -201,6 +218,8 @@ function MessagesBody() {
   }
 
   const newCount = seenAll ? 0 : newIds.length;
+  const chatUnread = chats.reduce((n, c) => n + (byPartner[c.partner_id] || 0), 0);
+  const show = (n) => (n > 99 ? "99+" : n);
 
   return (
     <div className="pg">
@@ -208,15 +227,21 @@ function MessagesBody() {
       <p className="pg-sub">Your chats, requests, and anonymous compliments.</p>
 
       <div className="pg-tabs">
-        <button className={tab === "chats" ? "on" : ""} onClick={() => setTab("chats")}>Chats</button>
-        <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>Groups</button>
+        <button className={tab === "chats" ? "on" : ""} onClick={() => setTab("chats")}>
+          Chats
+          {chatUnread > 0 && <span className="tab-count">{show(chatUnread)}</span>}
+        </button>
+        <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>
+          Groups
+          {groupUnread > 0 && <span className="tab-count">{show(groupUnread)}</span>}
+        </button>
         <button className={tab === "requests" ? "on" : ""} onClick={() => setTab("requests")}>
           Requests
-          {requests.length > 0 && <span className="tab-count">{requests.length}</span>}
+          {requests.length > 0 && <span className="tab-count">{show(requests.length)}</span>}
         </button>
         <button className={tab === "compliments" ? "on" : ""} onClick={() => setTab("compliments")}>
           Compliments
-          {newCount > 0 && <span className="tab-count">{newCount}</span>}
+          {newCount > 0 && <span className="tab-count">{show(newCount)}</span>}
         </button>
       </div>
 
@@ -345,8 +370,9 @@ function MessagesBody() {
           ))
         ))}
 
-            {/* GROUPS */}
+      {/* GROUPS */}
       {tab === "groups" && <GroupsTab />}
+
       {reporting && (
         <ReportComplimentSheet
           item={reporting}

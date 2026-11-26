@@ -183,3 +183,14 @@ export function openGroupTyping(groupId, me, onChange) {
     },
   };
 }
+
+// Calls onChange when a message arrives in any group you are in (used for the unread badges)
+export function subscribeToGroupsActivity(onChange) {
+  const channel = supabase
+    .channel(`groups-activity-${Date.now()}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "group_messages" }, () => onChange())
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
