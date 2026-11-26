@@ -19,14 +19,14 @@ const tabs = [
   { to: "/profile", icon: "ti-user", label: "Profile" },
 ];
 
-// Messages: chats with something unread. Matches: people who liked you that you haven't liked back.
+// Messages: every unread message, personal chats and groups together. Matches: people who liked you that you haven't liked back.
 function TabBadge({ kind }) {
-  const { chats, likedCount } = useUnread();
-  const n = kind === "chats" ? chats : likedCount;
+  const { total, likedCount } = useUnread();
+  const n = kind === "chats" ? total : likedCount;
   if (!n) return null;
   return (
-    <span className="tab-badge" aria-label={kind === "chats" ? `${n} unread chats` : `${n} new likes`}>
-      {n > 9 ? "9+" : n}
+    <span className="tab-badge" aria-label={kind === "chats" ? `${n} unread messages` : `${n} new likes`}>
+      {n > 99 ? "99+" : n}
     </span>
   );
 }

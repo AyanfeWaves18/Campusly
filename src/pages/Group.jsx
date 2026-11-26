@@ -4,6 +4,7 @@ import Avatar from "../components/Avatar.jsx";
 import GroupInfo from "../components/GroupInfo.jsx";
 import { BackIcon, SendIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
+import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
 import { getUser, isLoggedIn, load } from "../utils/storage.js";
 import {
   fetchGroupInfo,
@@ -15,6 +16,7 @@ import {
 } from "../lib/groups.js";
 import "./Chat.css";
 import "../components/Groups.css";
+import "../components/Reply.css";
 
 const MAX_TEXT = 500;
 const COLORS = [
@@ -43,8 +45,21 @@ export default function Group() {
   const [showInfo, setShowInfo] = useState(false);
   const [typers, setTypers] = useState([]); // who is typing right now
 
+  const [replyTo, setReplyTo] = useState(null); // the message you are answering
+
   const endRef = useRef(null);
   const typingRef = useRef(null);
+  const inputRef = useRef(null);
+  const swipe = useSwipeReply((m) => startReply(m));
+
+  function startReply(m) {
+    setReplyTo({
+      id: m.id,
+      name: m.sender_id === me?.id ? "yourself" : m.sender_name || "Unavailable account",
+      text: previewOf(m),
+    });
+    inputRef.current?.focus();
+  }
 
   const loadInfo = useCallback(async () => {
     const res = await fetchGroupInfo(id);
@@ -137,7 +152,7 @@ export default function Group() {
     }
     if (sending) return;
     setSending(true);
-    const res = await sendGroupMessage(id, t);
+    const res = await sendGroupMessage(id, t, replyTo?.id || null);
     setSending(false);
     if (res.error) {
       toast(res.error, "err");
@@ -147,9 +162,10 @@ export default function Group() {
     setMessages((list) =>
       list.some((x) => x.id === m.id)
         ? list
-        : [...list, { id: m.id, sender_id: m.sender_id, sender_name: me?.name, sender_uni: me?.uni, body: m.body, created_at: m.created_at }]
+        : [...list, { id: m.id, sender_id: m.sender_id, sender_name: me?.name, sender_uni: me?.uni, body: m.body, created_at: m.created_at, reply_to: m.reply_to || null }]
     );
     setText("");
+    setReplyTo(null);
     typingRef.current?.send(false);
   }
 
@@ -174,6 +190,13 @@ export default function Group() {
   }
 
   const [bg, fg] = colorFor(group.id);
+  // The box shown at the top of a reply
+  const quoteOf = (rid) => {
+    const o = messages.find((x) => x.id === rid);
+    return o
+      ? { id: o.id, name: o.sender_id === me?.id ? "You" : o.sender_name || "Unavailable account", text: previewOf(o) }
+      : { missing: true };
+  };
 
   return (
     <div className="ch">
@@ -206,13 +229,14 @@ export default function Group() {
           const prev = messages[i - 1];
           const showName = !isMine && (!prev || prev.sender_id !== m.sender_id);
           return (
-            <div className={`ch-msg ${isMine ? "me" : "them"}`} key={m.id}>
+            <div className={`ch-msg ${isMine ? "me" : "them"} sw`} key={m.id} id={`m-${m.id}`} {...swipe(m, true)}>
               {showName && (
                 <span className="gc-from">
                   {m.sender_name || "Unavailable account"}
                   {m.sender_uni && <i> · {m.sender_uni}</i>}
                 </span>
               )}
+              {m.reply_to && <ReplyQuote quote={quoteOf(m.reply_to)} />}
               {m.body}
               <span className="ch-meta">{clock(m.created_at)}</span>
             </div>
@@ -234,8 +258,10 @@ export default function Group() {
       </main>
 
       <div className="ch-tools">
+        {replyTo && <ReplyBar reply={replyTo} onCancel={() => setReplyTo(null)} />}
         <form className="ch-form" onSubmit={send}>
           <input
+            ref={inputRef}
             placeholder="Message the group"
             value={text}
             maxLength={MAX_TEXT}

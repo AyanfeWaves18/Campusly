@@ -6,6 +6,7 @@ import { BackIcon, SendIcon, SmileIcon } from "../components/Icons.jsx";
 import { ReportModal } from "../components/Modals.jsx";
 import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
 import { MicIcon, RecorderBar, VoicePlayer, useRecorder } from "../components/VoiceBits.jsx";
+import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { getUser, isLoggedIn } from "../utils/storage.js";
 import { formatWhen } from "../utils/data.js";
@@ -25,6 +26,7 @@ import {
   waitingMessages,
 } from "../lib/chat.js";
 import "./Chat.css";
+import "../components/Reply.css";
 
 const MAX_TEXT = 500;
 const COLORS = [
@@ -125,6 +127,14 @@ export default function Chat() {
   const [menu, setMenu] = useState(false);
   const [busyLike, setBusyLike] = useState(false);
   const [waiting, setWaiting] = useState(() => waitingMessages(id)); // messages waiting for internet
+    const [replyTo, setReplyTo] = useState(null); // the message you are answering
+  const inputRef = useRef(null);
+  const swipe = useSwipeReply((m) => startReply(m));
+
+  function startReply(m) {
+    setReplyTo({ id: m.id, name: m.sender_id === me?.id ? "yourself" : person?.name || "them", text: previewOf(m) });
+    inputRef.current?.focus();
+  }
 
   const listRef = useRef(null);
   const endRef = useRef(null);
@@ -290,7 +300,8 @@ export default function Chat() {
     }
     if (!canSend || sending) return;
     setSending(true);
-    const res = await sendOrQueue(id, t);
+    setReplyTo(null);
+    const res = await recorder.start();
     setSending(false);
     if (res.error) {
       toast(res.error, "err");
@@ -395,6 +406,13 @@ export default function Chat() {
   const name = person.name;
   const mine = messages.filter((m) => m.sender_id === me?.id);
   const lastMineId = mine.length ? mine[mine.length - 1].id : null;
+    // The box shown at the top of a reply
+  const quoteOf = (rid) => {
+    const o = messages.find((x) => x.id === rid);
+    return o
+      ? { id: o.id, name: o.sender_id === me?.id ? "You" : name, text: previewOf(o) }
+      : { missing: true };
+  };
 
   let bar = null;
   if (chat.state === "open") {
@@ -468,7 +486,12 @@ export default function Chat() {
           const isInviteCard = inv && m.sender_id === inv.inviterId;
           return (
             <div key={m.id} style={{ display: "contents" }}>
-              <div className={`ch-msg ${isMine ? "me" : "them"}`}>
+              <div
+                className={`ch-msg ${isMine ? "me" : "them"} ${canSend ? "sw" : ""}`}
+                id={`m-${m.id}`}
+                {...swipe(m, canSend)}
+              >
+                {m.reply_to && <ReplyQuote quote={quoteOf(m.reply_to)} />}
                 {m.audio_path ? (
                   <VoicePlayer url={voiceUrls[m.audio_path]} seconds={m.audio_seconds} />
                 ) : isInviteCard ? (
@@ -495,6 +518,7 @@ export default function Chat() {
         {waiting.map((w) => (
           <div key={w.tmpId} style={{ display: "contents" }}>
             <div className="ch-msg me pending">
+              {w.replyId && <ReplyQuote quote={quoteOf(w.replyId)} />}
               {w.text}
               <span className="ch-meta">{clock(w.ts)}</span>
             </div>
@@ -532,6 +556,7 @@ export default function Chat() {
       {bar}
 
       <div className="ch-tools">
+                {replyTo && canSend && <ReplyBar reply={replyTo} onCancel={() => setReplyTo(null)} />}
         {emojiOpen && canSend && (
           <div className="ch-pop emo-pop">
             <EmojiPicker onPick={(e) => setText((t) => (t + e).slice(0, MAX_TEXT))} />
@@ -557,6 +582,7 @@ export default function Chat() {
               <SmileIcon size={20} />
             </button>
             <input
+                ref={inputRef}
               placeholder={canSend ? "Type a message" : "Messages locked"}
               value={text}
               maxLength={MAX_TEXT}

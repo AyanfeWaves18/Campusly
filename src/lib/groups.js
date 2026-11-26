@@ -96,8 +96,10 @@ export async function fetchGroupMessages(id) {
   return r.error ? { error: "We couldn't load the messages." } : { messages: r.data || [] };
 }
 
-export async function sendGroupMessage(id, text) {
-  const r = await call("send_group_message", { p_group: id, p_body: text });
+export async function sendGroupMessage(id, text, replyId = null) {
+  const args = { p_group: id, p_body: text };
+  if (replyId) args.p_reply = replyId;
+  const r = await call("send_group_message", args);
   return r.error ? { error: r.error } : { message: first(r.data) };
 }
 

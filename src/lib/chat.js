@@ -31,8 +31,10 @@ function refused(error) {
   return !!ERRORS[text] || error?.code === "P0001";
 }
 
-export async function sendMessage(partnerId, text) {
-  const { data, error } = await supabase.rpc("send_message", { target: partnerId, content: text });
+export async function sendMessage(partnerId, text, replyId = null) {
+  const args = { target: partnerId, content: text };
+  if (replyId) args.p_reply = replyId;
+  const { data, error } = await supabase.rpc("send_message", args);
   if (error) {
     return { error: friendly(error), code: (error.message || "").trim(), retry: !refused(error) };
   }
@@ -81,7 +83,7 @@ function dropFromOutbox(tmpId) {
   writeOutbox(readOutbox().filter((m) => m.tmpId !== tmpId));
 }
 
-// The messages to one person that are still waiting: { tmpId, to, text, ts }
+// The messages to one person that are still waiting: { tmpId, to, text, ts, replyId }
 export function waitingMessages(partnerId) {
   return readOutbox().filter((m) => m.to === partnerId);
 }
@@ -93,7 +95,7 @@ export function subscribeToOutbox(fn) {
   return () => outboxListeners.delete(fn);
 }
 
-function queueMessage(partnerId, text) {
+function queueMessage(partnerId, text, replyId = null) {
   const list = readOutbox();
   if (list.filter((m) => m.to === partnerId).length >= MAX_WAITING) {
     return { error: "Too many messages are waiting. Connect to the internet first." };
@@ -103,6 +105,7 @@ function queueMessage(partnerId, text) {
     to: partnerId,
     text,
     ts: Date.now(),
+    replyId: replyId || null,
   };
   if (!writeOutbox([...list, item])) return { error: "We couldn't send your message. Please try again." };
   tellOutbox({ type: "queued" });
@@ -111,10 +114,10 @@ function queueMessage(partnerId, text) {
 
 // Sends the message. If there is no connection, it waits on the phone and goes out later.
 // Returns { message } when sent, { queued } when waiting, or { error }.
-export async function sendOrQueue(partnerId, text) {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return queueMessage(partnerId, text);
-  const res = await sendMessage(partnerId, text);
-  if (res.retry) return queueMessage(partnerId, text);
+export async function sendOrQueue(partnerId, text, replyId = null) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return queueMessage(partnerId, text, replyId);
+  const res = await sendMessage(partnerId, text, replyId);
+  if (res.retry) return queueMessage(partnerId, text, replyId);
   return res;
 }
 
@@ -133,7 +136,7 @@ export async function flushOutbox() {
         dropFromOutbox(item.tmpId);
         continue;
       }
-      const res = await sendMessage(item.to, item.text);
+      const res = await sendMessage(item.to, item.text, item.replyId);
       if (res.error) {
         if (res.retry) break; // still no connection, try again later
         refusedFor.add(item.to);
@@ -167,7 +170,7 @@ export async function fetchMessages(partnerId) {
   if (!me) return { messages: [] };
   const { data, error } = await supabase
     .from("messages")
-    .select("id, sender_id, recipient_id, body, created_at, read_at, audio_path, audio_seconds, invite_id")
+    .select("id, sender_id, recipient_id, body, created_at, read_at, audio_path, audio_seconds, invite_id, reply_to")
     .or(
       `and(sender_id.eq.${me},recipient_id.eq.${partnerId}),and(sender_id.eq.${partnerId},recipient_id.eq.${me})`
     )
