@@ -52,6 +52,22 @@ export default function Group() {
   const typingRef = useRef(null);
   const inputRef = useRef(null);
   const swipe = useSwipeReply((m) => startReply(m));
+  
+  // Esc closes whatever is open first, then leaves the group
+  const escRef = useRef(null);
+  escRef.current = () => {
+    if (showInfo) setShowInfo(false);
+    else if (replyTo) setReplyTo(null);
+    else navigate("/messages");
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+      escRef.current?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function startReply(m) {
     setReplyTo({
@@ -138,6 +154,13 @@ export default function Group() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typers.length]);
+
+  // On a computer the cursor is ready as soon as the group opens
+  useEffect(() => {
+    if (status === "ok" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
+      inputRef.current?.focus();
+    }
+  }, [status]);
 
   function onType(e) {
     setText(e.target.value);
@@ -274,6 +297,7 @@ export default function Group() {
             type="submit"
             className={`ch-send ${text.trim() ? "" : "off"}`}
             aria-label="Send"
+        ouseDown={(e) => e.preventDefault()}
             disabled={sending}
           >
             <SendIcon size={20} />

@@ -131,6 +131,24 @@ export default function Chat() {
     const [replyTo, setReplyTo] = useState(null); // the message you are answering
   const inputRef = useRef(null);
   const swipe = useSwipeReply((m) => startReply(m));
+  
+  // Esc closes whatever is open first, then leaves the chat
+  const escRef = useRef(null);
+  escRef.current = () => {
+    if (emojiOpen) setEmojiOpen(false);
+    else if (menu) setMenu(false);
+    else if (replyTo) setReplyTo(null);
+    else if (recorder.active) return; // never lose a voice note by accident
+    else navigate("/messages");
+  };
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== "Escape" || e.defaultPrevented || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+      escRef.current?.();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function startReply(m) {
     setReplyTo({ id: m.id, name: m.sender_id === me?.id ? "yourself" : person?.name || "them", text: previewOf(m) });
@@ -291,6 +309,13 @@ export default function Chat() {
   }, [messages, invites, peer, sendingVoice, waiting]);
 
   const canSend = chat.state === "matched" || chat.state === "open";
+  
+  // On a computer the cursor is ready as soon as the chat opens
+  useEffect(() => {
+    if (status === "ok" && canSend && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
+      inputRef.current?.focus();
+    }
+  }, [status, canSend]);
 
   async function send(e) {
     e?.preventDefault();
@@ -603,6 +628,7 @@ export default function Chat() {
                 type="submit"
                 className={`ch-send ${text.trim() && canSend ? "" : "off"}`}
                 aria-label="Send"
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={sending}
               >
                 <SendIcon size={20} />

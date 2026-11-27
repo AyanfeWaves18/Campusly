@@ -61,7 +61,10 @@ function showMenu(x, y, items) {
     if (!box.contains(e.target)) closeMenu();
   };
   const onKey = (e) => {
-    if (e.key === "Escape") closeMenu();
+    if (e.key === "Escape") {
+      e.stopPropagation(); // closes the menu only, not the chat behind it
+      closeMenu();
+    }
   };
   const onAway = () => closeMenu();
   document.addEventListener("mousedown", onDown, true);
