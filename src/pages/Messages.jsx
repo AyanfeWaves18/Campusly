@@ -12,6 +12,8 @@ import { fetchPeopleByIds } from "../lib/people.js";
 import { fetchGonePartners } from "../lib/gone.js";
 import { fetchMyGroups, subscribeToGroupsActivity } from "../lib/groups.js";
 import GroupsTab from "../components/GroupsTab.jsx";
+import { draftPreview } from "../lib/drafts.js";
+import "../components/Drafts.css";
 import "../components/Modals.css";
 import "./Pages.css";
 
@@ -277,6 +279,7 @@ function MessagesBody() {
         ) : (
           chats.map((c) => {
             const n = byPartner[c.partner_id] || 0;
+            const draft = draftPreview(`chat:${c.partner_id}`);
             return (
               <button
                 className={`row ${n > 0 ? "has-unread" : ""}`}
@@ -290,7 +293,9 @@ function MessagesBody() {
                     {n > 0 && <span className="unread-pill">{n > 99 ? "99+" : n}</span>}
                   </b>
                   <span>
-                    {c.last_body
+                    {draft
+                      ? <><i className="draft-tag">Draft:</i> {draft}</>
+                      : c.last_body
                       ? `${c.last_from_me ? "You: " : ""}${c.last_body}`
                       : "It's a match. Say hi!"}
                   </span>

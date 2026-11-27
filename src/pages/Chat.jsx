@@ -7,6 +7,7 @@ import { ReportModal } from "../components/Modals.jsx";
 import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
 import { MicIcon, RecorderBar, VoicePlayer, useRecorder } from "../components/VoiceBits.jsx";
 import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
+import { clearDraft, getDraft, setDraft } from "../lib/drafts.js";
 import { useToast } from "../components/Toast.jsx";
 import { getUser, isLoggedIn } from "../utils/storage.js";
 import { formatWhen } from "../utils/data.js";
@@ -119,7 +120,7 @@ export default function Chat() {
   const [invites, setInvites] = useState({});
   const [busyInvite, setBusyInvite] = useState(false);
   const [voiceUrls, setVoiceUrls] = useState({});
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => getDraft(`chat:${id}`));
   const [sending, setSending] = useState(false);
   const [sendingVoice, setSendingVoice] = useState(false);
   const [peer, setPeer] = useState(null); // what the other person is doing: "typing" | "recording" | null
@@ -314,6 +315,7 @@ export default function Chat() {
       setMessages((list) => (list.some((x) => x.id === res.message.id) ? list : [...list, res.message]));
     }
     setText("");
+    clearDraft(`chat:${id}`);
     setEmojiOpen(false);
     typingRef.current?.send(false);
     refreshState();
@@ -321,6 +323,7 @@ export default function Chat() {
 
   function onType(e) {
     setText(e.target.value);
+    setDraft(`chat:${id}`, e.target.value);
     if (canSend && e.target.value) typingRef.current?.send("typing");
   }
 
@@ -559,7 +562,13 @@ export default function Chat() {
                 {replyTo && canSend && <ReplyBar reply={replyTo} onCancel={() => setReplyTo(null)} />}
         {emojiOpen && canSend && (
           <div className="ch-pop emo-pop">
-            <EmojiPicker onPick={(e) => setText((t) => (t + e).slice(0, MAX_TEXT))} />
+            <EmojiPicker
+              onPick={(e) => {
+                const next = (text + e).slice(0, MAX_TEXT);
+                setText(next);
+                setDraft(`chat:${id}`, next);
+              }}
+            />
           </div>
         )}
 

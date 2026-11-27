@@ -5,6 +5,7 @@ import GroupInfo from "../components/GroupInfo.jsx";
 import { BackIcon, SendIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
+import { clearDraft, getDraft, setDraft } from "../lib/drafts.js";
 import { getUser, isLoggedIn, load } from "../utils/storage.js";
 import {
   fetchGroupInfo,
@@ -40,7 +41,7 @@ export default function Group() {
   const [group, setGroup] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ok | missing
   const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => getDraft(`group:${id}`));
   const [sending, setSending] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [typers, setTypers] = useState([]); // who is typing right now
@@ -140,6 +141,7 @@ export default function Group() {
 
   function onType(e) {
     setText(e.target.value);
+    setDraft(`group:${id}`, e.target.value);
     typingRef.current?.send(!!e.target.value);
   }
 
@@ -165,6 +167,7 @@ export default function Group() {
         : [...list, { id: m.id, sender_id: m.sender_id, sender_name: me?.name, sender_uni: me?.uni, body: m.body, created_at: m.created_at, reply_to: m.reply_to || null }]
     );
     setText("");
+    clearDraft(`group:${id}`);
     setReplyTo(null);
     typingRef.current?.send(false);
   }

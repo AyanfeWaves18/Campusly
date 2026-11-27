@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import Avatar from "./Avatar.jsx";
 import { useToast } from "./Toast.jsx";
 import { createGroup, discoverGroups, fetchMyGroups, joinGroup } from "../lib/groups.js";
+import { draftPreview } from "../lib/drafts.js";
 import "./Modals.css";
 import "./Groups.css";
+import "./Drafts.css";
 
 const COLORS = [
   ["#F4C0D1", "#72243E"],
@@ -237,7 +239,15 @@ export default function GroupsTab() {
                 {!g.is_public && <i className="ti ti-lock" style={{ marginLeft: 6, fontSize: "0.85em" }}></i>}
                 {g.unread > 0 && <span className="unread-pill">{g.unread > 99 ? "99+" : g.unread}</span>}
               </b>
-              <span>{g.last_body || `${members(g.member_count)}. Say hi!`}</span>
+              <span>
+                {draftPreview(`group:${g.id}`) ? (
+                  <>
+                    <i className="draft-tag">Draft:</i> {draftPreview(`group:${g.id}`)}
+                  </>
+                ) : (
+                  g.last_body || `${members(g.member_count)}. Say hi!`
+                )}
+              </span>
             </div>
             <small>{time(g.last_at)}</small>
           </button>
