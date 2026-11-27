@@ -186,3 +186,34 @@ export async function setRequireInvite(on) {
   if (error) return { error: "We couldn't change that. Please try again." };
   return { ok: true };
 }
+
+
+/* ---------- Group chats ---------- */
+
+const GROUP_ERRORS = { "not found": "That group no longer exists.", "not allowed": "You don't have access to that." };
+const groupFriendly = (e, fallback) => GROUP_ERRORS[(e?.message || "").trim()] || fallback;
+
+// Reported groups, or groups matching a name when q has 2 or more letters
+export async function adminGroups(q) {
+  const { data, error } = await supabase.rpc("admin_groups", { q: q || null });
+  if (error) return { error: "We couldn't load the groups.", rows: [] };
+  return { rows: data || [] };
+}
+
+export async function adminGroupDetail(id) {
+  const { data, error } = await supabase.rpc("admin_group_detail", { p_group: id });
+  if (error) return { error: groupFriendly(error, "We couldn't open that group.") };
+  return { group: data };
+}
+
+export async function adminDismissGroupReports(id) {
+  const { error } = await supabase.rpc("admin_dismiss_group_reports", { p_group: id });
+  if (error) return { error: groupFriendly(error, "We couldn't do that. Please try again.") };
+  return { ok: true };
+}
+
+export async function adminRemoveGroup(id, why) {
+  const { error } = await supabase.rpc("admin_remove_group", { p_group: id, why: why || null });
+  if (error) return { error: groupFriendly(error, "We couldn't remove that group.") };
+  return { ok: true };
+}

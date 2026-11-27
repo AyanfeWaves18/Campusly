@@ -8,6 +8,7 @@ import { eventTypes } from "../utils/options.js";
 import {
   adminFindPeople,
   adminGetProfile,
+  adminGroups,
   adminRemovePhoto,
   adminSetSuspended,
   adminVoiceUrls,
@@ -21,6 +22,7 @@ import {
   setReportStatus,
 } from "../lib/admin.js";
 import AdminInvites from "../components/AdminInvites.jsx";
+import AdminGroups from "../components/AdminGroups.jsx";
 import AdminPilot from "../components/AdminPilot.jsx";
 import "../components/Modals.css";
 import "./Inner.css";
@@ -64,6 +66,9 @@ const ACTIONS = {
      disable_invite: "switched off the invite code",
      require_invite_on: "turned on",
      require_invite_off: "turned off",
+          remove_group: "removed the group",
+     dismiss_group_reports: "cleared the reports on the group",
+     view_group: "opened the messages of the group",
 };
 
 /* One person: their details, photos, and the suspend button */
@@ -236,7 +241,7 @@ export default function Admin() {
   const [searching, setSearching] = useState(false);
   const [personId, setPersonId] = useState(null);
   const [log, setLog] = useState(null);
-
+  const [groupCount, setGroupCount] = useState(0); // reported groups
   const load = useCallback(async () => {
     const [s, e, r] = await Promise.all([
       fetchAdminStats(),
@@ -246,6 +251,7 @@ export default function Admin() {
     if (s.stats) setStats(s.stats);
     setEvents(e.events || []);
     setReports(r.reports || []);
+    adminGroups("").then((g) => setGroupCount((g.rows || []).length));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -393,6 +399,10 @@ export default function Admin() {
           <button className={tab === "reports" ? "on" : ""} onClick={() => setTab("reports")}>
             Reports
             {openCount > 0 && <span className="tab-count">{openCount}</span>}
+          </button>
+          <button className={tab === "groups" ? "on" : ""} onClick={() => setTab("groups")}>
+            Groups
+            {groupCount > 0 && <span className="tab-count">{groupCount}</span>}
           </button>
           <button className={tab === "people" ? "on" : ""} onClick={() => setTab("people")}>People</button>
           <button className={tab === "activity" ? "on" : ""} onClick={() => setTab("activity")}>Activity</button>
@@ -591,6 +601,8 @@ export default function Admin() {
           </>
         )}
                    {tab === "invites" && <AdminInvites />}
+                   
+        {tab === "groups" && <AdminGroups onPerson={setPersonId} onChanged={load} />}
 
         {/* ACTIVITY */}
         {tab === "activity" &&
