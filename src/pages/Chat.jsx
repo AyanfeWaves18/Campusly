@@ -128,10 +128,11 @@ export default function Chat() {
   const [menu, setMenu] = useState(false);
   const [busyLike, setBusyLike] = useState(false);
   const [waiting, setWaiting] = useState(() => waitingMessages(id)); // messages waiting for internet
-    const [replyTo, setReplyTo] = useState(null); // the message you are answering
+  const [replyTo, setReplyTo] = useState(null); // the message you are answering
   const inputRef = useRef(null);
+  const justSent = useRef(0);
   const swipe = useSwipeReply((m) => startReply(m));
-  
+
   // Esc closes whatever is open first, then leaves the chat
   const escRef = useRef(null);
   escRef.current = () => {
@@ -168,7 +169,7 @@ export default function Chat() {
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
-    // Puts a message you just sent on screen. If the server gave nothing back, reload the chat instead.
+  // Puts a message you just sent on screen. If the server gave nothing back, reload the chat instead.
   const addSent = useCallback(
     async (msg) => {
       if (msg && msg.id != null) {
@@ -180,6 +181,7 @@ export default function Chat() {
     },
     [id]
   );
+
   // Messages written with no internet: shown with a red note, then sent by themselves later
   useEffect(() => {
     setWaiting(waitingMessages(id));
@@ -194,7 +196,7 @@ export default function Chat() {
         refreshState();
       }
     });
-    }, [id, refreshState, addSent]);
+  }, [id, refreshState, addSent]);
 
   const loadInvites = useCallback(async () => {
     const res = await fetchInvitesWith(id);
@@ -321,7 +323,7 @@ export default function Chat() {
   }, [messages, invites, peer, sendingVoice, waiting]);
 
   const canSend = chat.state === "matched" || chat.state === "open";
-  
+
   // On a computer the cursor is ready as soon as the chat opens
   useEffect(() => {
     if (status === "ok" && canSend && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) {
@@ -338,8 +340,8 @@ export default function Chat() {
     }
     if (!canSend || sending) return;
     setSending(true);
-    setReplyTo(null);
-    const res = await recorder.start();
+    const res = await sendOrQueue(id, t, replyTo?.id || null);
+    if (!res.error) setReplyTo(null);
     setSending(false);
     if (res.error) {
       toast(res.error, "err");
@@ -351,6 +353,7 @@ export default function Chat() {
     } else {
       addSent(res.message);
     }
+    justSent.current = Date.now();
     setText("");
     clearDraft(`chat:${id}`);
     setEmojiOpen(false);
@@ -365,8 +368,14 @@ export default function Chat() {
   }
 
   async function startRecording() {
-    if (!canSend) return;
+    if (!canSend || sending) return;
+    if (text.trim()) {
+      send(); // there is a typed message, so this tap means send
+      return;
+    }
+    if (Date.now() - justSent.current < 1000) return; // a double tap right after sending
     setEmojiOpen(false);
+    setReplyTo(null);
     const res = await recorder.start();
     if (res.error) toast(res.error, "err");
   }
@@ -446,7 +455,8 @@ export default function Chat() {
   const name = person.name;
   const mine = messages.filter((m) => m.sender_id === me?.id);
   const lastMineId = mine.length ? mine[mine.length - 1].id : null;
-    // The box shown at the top of a reply
+
+  // The box shown at the top of a reply
   const quoteOf = (rid) => {
     const o = messages.find((x) => x.id === rid);
     return o
@@ -596,7 +606,7 @@ export default function Chat() {
       {bar}
 
       <div className="ch-tools">
-                {replyTo && canSend && <ReplyBar reply={replyTo} onCancel={() => setReplyTo(null)} />}
+        {replyTo && canSend && <ReplyBar reply={replyTo} onCancel={() => setReplyTo(null)} />}
         {emojiOpen && canSend && (
           <div className="ch-pop emo-pop">
             <EmojiPicker
@@ -628,7 +638,7 @@ export default function Chat() {
               <SmileIcon size={20} />
             </button>
             <input
-                ref={inputRef}
+              ref={inputRef}
               placeholder={canSend ? "Type a message" : "Messages locked"}
               value={text}
               maxLength={MAX_TEXT}
@@ -637,6 +647,7 @@ export default function Chat() {
             />
             {text.trim() || !canSend ? (
               <button
+                key="send"
                 type="submit"
                 className={`ch-send ${text.trim() && canSend ? "" : "off"}`}
                 aria-label="Send"
@@ -646,7 +657,7 @@ export default function Chat() {
                 <SendIcon size={20} />
               </button>
             ) : (
-              <button type="button" className="ch-send" aria-label="Record a voice note" onClick={startRecording}>
+              <button key="mic" type="button" className="ch-send" aria-label="Record a voice note" onClick={startRecording}>
                 <MicIcon size={20} />
               </button>
             )}
