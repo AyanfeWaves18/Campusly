@@ -168,6 +168,18 @@ export default function Chat() {
   const toastRef = useRef(toast);
   toastRef.current = toast;
 
+    // Puts a message you just sent on screen. If the server gave nothing back, reload the chat instead.
+  const addSent = useCallback(
+    async (msg) => {
+      if (msg && msg.id != null) {
+        setMessages((list) => (list.some((x) => x.id === msg.id) ? list : [...list, msg]));
+        return;
+      }
+      const m = await fetchMessages(id);
+      if (!m.error) setMessages(m.messages);
+    },
+    [id]
+  );
   // Messages written with no internet: shown with a red note, then sent by themselves later
   useEffect(() => {
     setWaiting(waitingMessages(id));
@@ -175,14 +187,14 @@ export default function Chat() {
       setWaiting(waitingMessages(id));
       if (evt.partnerId !== id) return;
       if (evt.type === "sent") {
-        setMessages((list) => (list.some((x) => x.id === evt.message.id) ? list : [...list, evt.message]));
+        addSent(evt.message);
         refreshState();
       } else if (evt.type === "failed") {
         toastRef.current(evt.error, "err");
         refreshState();
       }
     });
-  }, [id, refreshState]);
+    }, [id, refreshState, addSent]);
 
   const loadInvites = useCallback(async () => {
     const res = await fetchInvitesWith(id);
@@ -337,7 +349,7 @@ export default function Chat() {
     if (res.queued) {
       setWaiting(waitingMessages(id)); // no internet: it waits and goes out by itself
     } else {
-      setMessages((list) => (list.some((x) => x.id === res.message.id) ? list : [...list, res.message]));
+      addSent(res.message);
     }
     setText("");
     clearDraft(`chat:${id}`);
@@ -374,7 +386,7 @@ export default function Chat() {
       refreshState();
       return;
     }
-    setMessages((list) => (list.some((x) => x.id === res.message.id) ? list : [...list, res.message]));
+    addSent(res.message);
     refreshState();
   }
 

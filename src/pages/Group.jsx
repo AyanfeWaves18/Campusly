@@ -184,6 +184,10 @@ export default function Group() {
       return;
     }
     const m = res.message;
+    if (!m || m.id == null) {
+      loadMessages();
+      return;
+    }
     setMessages((list) =>
       list.some((x) => x.id === m.id)
         ? list
