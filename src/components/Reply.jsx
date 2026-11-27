@@ -21,6 +21,68 @@ function release(el) {
   }, 220);
 }
 
+// ---------- Right-click menu (computers) ----------
+let openMenu = null;
+
+function closeMenu() {
+  if (openMenu) {
+    openMenu();
+    openMenu = null;
+  }
+}
+
+function showMenu(x, y, items) {
+  closeMenu();
+  const box = document.createElement("div");
+  box.className = "rp-menu";
+  box.setAttribute("role", "menu");
+  items.forEach((item) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("role", "menuitem");
+    const icon = document.createElement("i");
+    icon.className = `ti ${item.icon}`;
+    b.appendChild(icon);
+    b.appendChild(document.createTextNode(item.label));
+    b.addEventListener("click", () => {
+      closeMenu();
+      item.run();
+    });
+    box.appendChild(b);
+  });
+  document.body.appendChild(box);
+
+  // Keep the menu inside the window
+  const r = box.getBoundingClientRect();
+  box.style.left = `${Math.max(8, Math.min(x, window.innerWidth - r.width - 8))}px`;
+  box.style.top = `${Math.max(8, Math.min(y, window.innerHeight - r.height - 8))}px`;
+
+  const onDown = (e) => {
+    if (!box.contains(e.target)) closeMenu();
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") closeMenu();
+  };
+  const onAway = () => closeMenu();
+  document.addEventListener("mousedown", onDown, true);
+  document.addEventListener("keydown", onKey, true);
+  document.addEventListener("scroll", onAway, true);
+  document.addEventListener("wheel", onAway, true);
+  window.addEventListener("resize", onAway);
+  window.addEventListener("blur", onAway);
+
+  openMenu = () => {
+    document.removeEventListener("mousedown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    document.removeEventListener("scroll", onAway, true);
+    document.removeEventListener("wheel", onAway, true);
+    window.removeEventListener("resize", onAway);
+    window.removeEventListener("blur", onAway);
+    box.remove();
+  };
+  box.querySelector("button")?.focus();
+}
+
 // const swipe = useSwipeReply((message) => ...);  then  <div {...swipe(message, canReply)}>
 export function useSwipeReply(onReply) {
   const cb = useRef(onReply);
@@ -30,6 +92,19 @@ export function useSwipeReply(onReply) {
   return useCallback((m, enabled = true) => {
     if (!enabled) return {};
     return {
+      // Right-click on a computer: Reply and Copy. Phones keep their own long-press behaviour.
+      onContextMenu(e) {
+        if (!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches) return;
+        if (e.target.closest && e.target.closest("a, input, textarea, audio")) return;
+        // Text is selected: let the normal menu appear so it can be copied
+        if (window.getSelection?.()?.toString()) return;
+        e.preventDefault();
+        const items = [{ label: "Reply", icon: "ti-arrow-back-up", run: () => cb.current?.(m) }];
+        if (m.body && !m.audio_path) {
+          items.push({ label: "Copy text", icon: "ti-copy", run: () => navigator.clipboard?.writeText(m.body) });
+        }
+        showMenu(e.clientX, e.clientY, items);
+      },
       onPointerDown(e) {
         if (e.pointerType === "mouse" && e.button !== 0) return;
         // Buttons, links and sliders inside a message keep working normally
