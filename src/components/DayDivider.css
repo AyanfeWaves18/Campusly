@@ -1,0 +1,20 @@
+.dd {
+  align-self: center;
+  margin: 10px 0 4px;
+  text-align: center;
+}
+.dd span {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #a9a9b3;
+  font-size: 12px;
+  font-weight: 600;
+}
+@media (prefers-color-scheme: light) {
+  .dd span {
+    background: rgba(0, 0, 0, 0.06);
+    color: #666;
+  }
+}

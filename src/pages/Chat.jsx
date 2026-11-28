@@ -7,6 +7,7 @@ import { ReportModal } from "../components/Modals.jsx";
 import { PullIndicator, usePullToRefresh } from "../components/PullToRefresh.jsx";
 import { MicIcon, RecorderBar, VoicePlayer, useRecorder } from "../components/VoiceBits.jsx";
 import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
+import DayDivider, { sameDay } from "../components/DayDivider.jsx";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts.js";
 import { useToast } from "../components/Toast.jsx";
 import { getUser, isLoggedIn } from "../utils/storage.js";
@@ -529,13 +530,15 @@ export default function Chat() {
           </div>
         )}
 
-        {messages.map((m) => {
+        {messages.map((m, i) => {
           const isMine = m.sender_id === me?.id;
+          const newDay = i === 0 || !sameDay(messages[i - 1].created_at, m.created_at);
           const inv = m.invite_id ? invites[m.invite_id] : null;
           // The invite itself is a card. The answer ("Accepted: ...") is a normal message.
           const isInviteCard = inv && m.sender_id === inv.inviterId;
           return (
             <div key={m.id} style={{ display: "contents" }}>
+                            {newDay && <DayDivider ts={m.created_at} />}
               <div
                 className={`ch-msg ${isMine ? "me" : "them"} ${canSend ? "sw" : ""}`}
                 id={`m-${m.id}`}

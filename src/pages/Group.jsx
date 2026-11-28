@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Avatar from "../components/Avatar.jsx";
 import GroupInfo from "../components/GroupInfo.jsx";
 import { BackIcon, SendIcon } from "../components/Icons.jsx";
 import { useToast } from "../components/Toast.jsx";
 import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
+import DayDivider, { sameDay } from "../components/DayDivider.jsx";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts.js";
 import { getUser, isLoggedIn, load } from "../utils/storage.js";
 import {
@@ -52,7 +53,7 @@ export default function Group() {
   const typingRef = useRef(null);
   const inputRef = useRef(null);
   const swipe = useSwipeReply((m) => startReply(m));
-  
+
   // Esc closes whatever is open first, then leaves the group
   const escRef = useRef(null);
   escRef.current = () => {
@@ -257,19 +258,23 @@ export default function Group() {
         {messages.map((m, i) => {
           const isMine = m.sender_id === me?.id;
           const prev = messages[i - 1];
-          const showName = !isMine && (!prev || prev.sender_id !== m.sender_id);
+          const newDay = !prev || !sameDay(prev.created_at, m.created_at);
+          const showName = !isMine && (!prev || prev.sender_id !== m.sender_id || newDay);
           return (
-            <div className={`ch-msg ${isMine ? "me" : "them"} sw`} key={m.id} id={`m-${m.id}`} {...swipe(m, true)}>
-              {showName && (
-                <span className="gc-from">
-                  {m.sender_name || "Unavailable account"}
-                  {m.sender_uni && <i> · {m.sender_uni}</i>}
-                </span>
-              )}
-              {m.reply_to && <ReplyQuote quote={quoteOf(m.reply_to)} />}
-              {m.body}
-              <span className="ch-meta">{clock(m.created_at)}</span>
-            </div>
+            <Fragment key={m.id}>
+              {newDay && <DayDivider ts={m.created_at} />}
+              <div className={`ch-msg ${isMine ? "me" : "them"} sw`} id={`m-${m.id}`} {...swipe(m, true)}>
+                {showName && (
+                  <span className="gc-from">
+                    {m.sender_name || "Unavailable account"}
+                    {m.sender_uni && <i> · {m.sender_uni}</i>}
+                  </span>
+                )}
+                {m.reply_to && <ReplyQuote quote={quoteOf(m.reply_to)} />}
+                {m.body}
+                <span className="ch-meta">{clock(m.created_at)}</span>
+              </div>
+            </Fragment>
           );
         })}
         {typers.length > 0 && (
@@ -301,7 +306,7 @@ export default function Group() {
             type="submit"
             className={`ch-send ${text.trim() ? "" : "off"}`}
             aria-label="Send"
-        ouseDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
             disabled={sending}
           >
             <SendIcon size={20} />
