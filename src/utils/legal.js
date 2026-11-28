@@ -1,6 +1,6 @@
 // CHANGE THIS to the email address students should write to
 export const SUPPORT_EMAIL = "campusly.support@gmail.com";
-export const LAST_UPDATED = "13 November 2026";
+export const LAST_UPDATED = "28 November 2026";
 
 export const PAGES = {
   terms: {
@@ -55,13 +55,14 @@ export const PAGES = {
         h: "6. Messages, voice notes and compliments",
         p: [
           "Messages and voice notes can be seen by you and the person you are talking to. They are not end-to-end encrypted. We may access them when someone reports a conversation, to keep Campusly safe, or where the law requires.",
+          "Group messages can be seen by every member of that group, including students from other campuses. Groups can be public, so anyone on Campusly may be able to find a group and join it. Only share in a group what you are happy for all its members to read.",
           "Anonymous compliments use ready-made messages. The person who receives one can't see who sent it, but we can, and we will act on abuse.",
         ],
       },
       {
         h: "7. Reports and what we may do",
         p: [
-          "If you report someone, we may look at the reported content and your recent messages with that person. We may remove content, limit features, or suspend or close accounts that break these Terms or put people at risk, sometimes without warning. We will try to explain when we can. If you think we made a mistake, write to us.",
+          "If you report someone, we may look at the reported content and your recent messages with that person. If a group is reported, we may read that group's recent messages. We may remove content, limit features, or suspend or close accounts that break these Terms or put people at risk, sometimes without warning. We will try to explain when we can. If you think we made a mistake, write to us.",
         ],
       },
       {
@@ -107,9 +108,11 @@ export const PAGES = {
           "Account details: your name, email, phone number and password. Your password is kept in scrambled form by our login provider, and we can't read it. If you sign in with Google, Google gives us your name and email.",
           "Profile details: your university, gender, department, level, who you're interested in, what you're looking for, the departments you'd like to meet, your interests, bio, prompt answers and photos.",
           "What you do in the app: likes, matches, messages and voice notes, whether messages were read, events you mark as going and invites, anonymous compliments you send or receive, and people you block or report.",
+          "Groups: the groups you create or join, your role in them, and the messages you post there.",
+          "Notifications: if you turn them on, the address your browser or phone gives us so that we can send notifications to your device.",
           "Your age confirmation: when you confirmed you are 18 or older, and which version of the Terms you accepted. We do not ask for your date of birth.",
           "Technical data: your IP address and browser or device type, handled by our hosting and security providers so the app works and is protected from bots.",
-          "On your device: we use local storage to keep you signed in and to remember settings such as light or dark mode and event reminders.",
+          "On your device: we use local storage to keep you signed in and to remember settings such as light or dark mode and event reminders. It also holds message drafts you haven't sent, and messages waiting to be sent when you have no internet.",
         ],
       },
       {
@@ -128,6 +131,7 @@ export const PAGES = {
           "Other students on your campus can see your name, university, department, level, photos, bio, interests, prompt answers and what you are looking for. You can hide your profile from everyone, or from your own department, in Settings.",
           "Nobody else can see your email address or phone number.",
           "Messages and voice notes can be seen by you and the other person. They are not end-to-end encrypted, so our team can technically access them. We look at private messages only when a conversation is reported (a report saves the last 10 messages between the two people), where the law requires it, or to look into a serious safety concern.",
+          "Groups: everyone in a group can see the group's messages, and your name and university next to each message you post. Members can come from other campuses. Public groups can be found by anyone on Campusly, including their name, description and number of members. Our team can read a group's recent messages only after someone reports that group, and we keep a record each time we do.",
           "When you like someone, they can see that you did. If they choose \"Not now\", you are not told.",
           "Anonymous compliments show the message but not the sender. The first ready-made message mentions the sender's department. We can see who sent every compliment, and we use that only to deal with abuse.",
           "People you block can't see your profile, and you can't see theirs.",
@@ -140,6 +144,7 @@ export const PAGES = {
           "Vercel: hosts the website.",
           "Cloudflare: a security check that tells humans from bots.",
           "Google: sign-in, if you choose it.",
+          "Your device's notification service (run by Google, Apple, Microsoft or Mozilla, depending on your device): delivers notifications if you turn them on. They show the notification text, such as who messaged you.",
           "Sentry: receives automatic error reports when the app crashes, such as the page you were on, your browser type and the error message. We set it up not to send your messages, photos or profile details.",
         ],
         p: [
@@ -150,7 +155,8 @@ export const PAGES = {
         h: "6. How long we keep it",
         list: [
           "Your account data stays until you delete your account.",
-          "When you delete your account, we delete your profile, photos, voice notes, messages, likes, event plans and compliments.",
+          "When you delete your account, we delete your profile, photos, voice notes, likes, event plans and compliments.",
+          "Messages you sent stay where they were sent, because the other people in the conversation still need them. In a private chat, the other person keeps the messages. In a group, the messages stay in the group. After you delete your account they show as from an unavailable account, with no name or photo.",
           "We keep a record that an account existed: your campus, how you signed up, and when you signed up and deleted. It also holds a scrambled version of your email and phone number, made with a secret key that is stored separately from the database, so it can't be turned back into your real details. We use it to count registrations and to stop one email or phone number being used for two active accounts.",
           "Reports are kept for 12 months after we close them, then deleted automatically, even if an account is deleted. Reports that are still open are kept until we have looked at them.",
           "Our providers may keep backups for a short time before they are overwritten.",
@@ -223,6 +229,7 @@ export const PAGES = {
         list: [
           "Blocking hides you from each other and removes any likes between you. They are not told.",
           "Reporting sends us the reason you choose and your recent messages with that person, so we can see what happened.",
+          "You can also report a whole group from its info screen. We can then read that group's recent messages.",
           "We may remove content, limit features, or suspend or close accounts. We can't promise to answer every report personally, but we read them.",
         ],
       },
