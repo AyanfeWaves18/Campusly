@@ -10,6 +10,7 @@ import { removeAllMyPhotos } from "../lib/photos.js";
 import { removeAllMyVoiceNotes } from "../lib/voice.js";
 import { changeMyPassword, saveProfileToCloud } from "../lib/profile.js";
 import { fetchMyBlocks, unblockPerson } from "../lib/blocks.js";
+import { clearChatCaches } from "../lib/chatCache.js";
 import {
   applyTheme,
   currentTheme,
@@ -116,6 +117,7 @@ export default function Settings() {
   }
 
   async function logout() {
+    clearChatCaches();
     await supabase.auth.signOut();
     setLoggedIn(false);
     navigate("/login");
@@ -123,7 +125,7 @@ export default function Settings() {
 
   async function deleteAccount() {
     const ok = window.confirm(
-    "Delete your account?\n\nYour profile, photos, matches and voice notes will be removed. Text messages you already sent stay in the other person's chat, but without your name or photo. You can sign up again later with the same email or phone number."
+      "Delete your account?\n\nYour profile, photos, matches and voice notes will be removed. Text messages you already sent stay in the other person's chat, but without your name or photo. You can sign up again later with the same email or phone number."
     );
     if (!ok) return;
     setDeleting(true);
@@ -138,6 +140,7 @@ export default function Settings() {
       return;
     }
 
+    clearChatCaches();
     await supabase.auth.signOut({ scope: "local" });
     deleteMyAccount(user);
     applyTheme();
@@ -147,7 +150,7 @@ export default function Settings() {
   return (
     <AppLayout>
       <div className="in-wrap">
-                  <NotifyCard />
+        <NotifyCard />
         <form className="in-card" onSubmit={saveName}>
           <h2>Account details</h2>
           <label>Full name</label>
@@ -218,8 +221,8 @@ export default function Settings() {
             ))
           )}
         </div>
-           <InviteFriends />
-                   <InstallCard />
+        <InviteFriends />
+        <InstallCard />
         <div className="in-card">
           <h2>Help and legal</h2>
           <div className="in-row">

@@ -9,6 +9,7 @@ import { MicIcon, RecorderBar, VoicePlayer, useRecorder } from "../components/Vo
 import { ReplyBar, ReplyQuote, previewOf, useSwipeReply } from "../components/Reply.jsx";
 import DayDivider, { sameDay } from "../components/DayDivider.jsx";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts.js";
+import { loadChatCache, saveChatCache } from "../lib/chatCache.js";
 import { useToast } from "../components/Toast.jsx";
 import { getUser, isLoggedIn } from "../utils/storage.js";
 import { formatWhen } from "../utils/data.js";
@@ -115,7 +116,9 @@ export default function Chat() {
   const recorder = useRecorder();
 
   const [person, setPerson] = useState(null);
-  const [status, setStatus] = useState("loading"); // loading | ok | missing (a deleted account counts as ok)
+  const [status, setStatus] = useState("loading"); // loading | ok | missing | offline (a deleted account counts as ok)
+  const [offline, setOffline] = useState(false); // showing saved messages because there is no connection
+  const [reloadKey, setReloadKey] = useState(0);
   const [chat, setChat] = useState({ state: "closed", remaining: null });
   const [messages, setMessages] = useState([]);
   const [invites, setInvites] = useState({});
@@ -207,6 +210,10 @@ export default function Chat() {
   // Pull down at the top of the messages to refresh
   async function refresh() {
     const [m, s, iv] = await Promise.all([fetchMessages(id), fetchChatState(id), fetchInvitesWith(id)]);
+    if (m.error) {
+      toast("Can't refresh without internet.", "err");
+      return;
+    }
     if (!m.error) setMessages(m.messages);
     if (!s.error) setChat({ state: s.state, remaining: s.remaining });
     if (!iv.error) setInvites(iv.invites);
@@ -230,6 +237,21 @@ export default function Chat() {
         fetchInvitesWith(id),
       ]);
       if (cancelled) return;
+      // No connection (not a missing person): show the saved copy of this chat if there is one
+      if (p.error && (navigator.onLine === false || m.error)) {
+        const saved = loadChatCache(id);
+        if (saved) {
+          setPerson(saved.person);
+          setMessages(saved.messages || []);
+          setChat({ state: saved.state || "closed", remaining: saved.remaining ?? null });
+          setOffline(true);
+          setStatus("ok");
+        } else {
+          setStatus("offline");
+        }
+        return;
+      }
+      setOffline(false);
       if (p.error) {
         // Their account is gone, but the chat stays so you can still read it
         if (!s.error && s.state === "gone") {
@@ -253,7 +275,20 @@ export default function Chat() {
     return () => {
       cancelled = true;
     };
-  }, [id, navigate]);
+   }, [id, navigate, reloadKey]);
+
+  // When the connection comes back, load the real chat again
+  useEffect(() => {
+    const back = () => setReloadKey((k) => k + 1);
+    window.addEventListener("online", back);
+    return () => window.removeEventListener("online", back);
+  }, []);
+
+  // Keep a small saved copy of this chat so it opens with no internet
+  useEffect(() => {
+    if (status !== "ok" || !person || offline) return;
+    saveChatCache(id, { person, messages, state: chat.state, remaining: chat.remaining });
+  }, [id, status, person, messages, chat, offline]);
 
   // Live updates: new messages, "seen" ticks, invite answers, and the typing / recording signs
   useEffect(() => {
@@ -440,6 +475,17 @@ export default function Chat() {
     );
   }
 
+  if (status === "offline") {
+    return (
+      <div className="ch">
+        <div className="ch-empty" style={{ textAlign: "center" }}>
+          You're offline. This chat opens as soon as you're back online.
+          <br />
+          <Link to="/messages" style={{ color: "var(--pink)" }}>Back to messages</Link>
+        </div>
+      </div>
+    );
+  }
   if (status === "missing") {
     return (
       <div className="ch">
@@ -466,7 +512,13 @@ export default function Chat() {
   };
 
   let bar = null;
-  if (chat.state === "open") {
+  if (offline) {
+    bar = (
+      <div className="ch-bar">
+        You're offline. These are your saved messages. Anything you send goes out when you're back online.
+      </div>
+    );
+  } else if (chat.state === "open") {
     bar = (
       <div className="ch-bar">
         {chat.remaining} free {chat.remaining === 1 ? "message" : "messages"} left. Once you both like

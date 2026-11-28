@@ -112,7 +112,7 @@ export const PAGES = {
           "Notifications: if you turn them on, the address your browser or phone gives us so that we can send notifications to your device.",
           "Your age confirmation: when you confirmed you are 18 or older, and which version of the Terms you accepted. We do not ask for your date of birth.",
           "Technical data: your IP address and browser or device type, handled by our hosting and security providers so the app works and is protected from bots.",
-          "On your device: we use local storage to keep you signed in and to remember settings such as light or dark mode and event reminders. It also holds message drafts you haven't sent, and messages waiting to be sent when you have no internet.",
+          "On your device: we use local storage to keep you signed in and to remember settings such as light or dark mode and event reminders. It also holds message drafts you haven't sent, messages waiting to be sent when you have no internet, and a copy of your most recent messages in each chat you open, so chats open without internet. These copies are deleted when you log out.",
         ],
       },
       {
